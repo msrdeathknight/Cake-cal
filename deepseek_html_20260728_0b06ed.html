@@ -1,0 +1,2069 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>محاسبه‌گر قیمت کیک و شیرینی</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" />
+    <style>
+        /* ========== CSS Variables / Theming (Soft Purple & Blue) ========== */
+        :root {
+            --md-sys-color-primary: #7C4DFF;
+            --md-sys-color-on-primary: #FFFFFF;
+            --md-sys-color-primary-container: #E8DEFF;
+            --md-sys-color-on-primary-container: #2D007A;
+            --md-sys-color-secondary: #448AFF;
+            --md-sys-color-on-secondary: #FFFFFF;
+            --md-sys-color-secondary-container: #D6E4FF;
+            --md-sys-color-on-secondary-container: #00327A;
+            --md-sys-color-tertiary: #AA6EFF;
+            --md-sys-color-on-tertiary: #FFFFFF;
+            --md-sys-color-tertiary-container: #F0E6FF;
+            --md-sys-color-on-tertiary-container: #2B005C;
+            --md-sys-color-error: #BA1A1A;
+            --md-sys-color-on-error: #FFFFFF;
+            --md-sys-color-error-container: #FFDAD6;
+            --md-sys-color-on-error-container: #410002;
+            --md-sys-color-background: #F8F6FF;
+            --md-sys-color-on-background: #1C1B24;
+            --md-sys-color-surface: #F8F6FF;
+            --md-sys-color-on-surface: #1C1B24;
+            --md-sys-color-surface-variant: #E6E0F0;
+            --md-sys-color-on-surface-variant: #49455E;
+            --md-sys-color-outline: #7B7692;
+            --md-sys-color-outline-variant: #C8C2DD;
+            --md-sys-color-shadow: #000000;
+            --md-sys-color-scrim: #000000;
+            --md-sys-color-inverse-surface: #31303A;
+            --md-sys-color-inverse-on-surface: #F0EDFA;
+            --md-sys-color-inverse-primary: #D3B8FF;
+            --md-sys-color-surface-tint: #7C4DFF;
+            --md-sys-color-surface-container-lowest: #FFFFFF;
+            --md-sys-color-surface-container-low: #F2EEFD;
+            --md-sys-color-surface-container: #EAE6F7;
+            --md-sys-color-surface-container-high: #E2DEF1;
+            --md-sys-color-surface-container-highest: #DAD6EB;
+
+            --md-ref-font-family-fa: 'Vazirmatn', 'Inter', sans-serif;
+            --md-ref-font-family-en: 'Inter', 'Vazirmatn', sans-serif;
+
+            --elevation-1: 0 1px 2px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.1);
+            --elevation-2: 0 2px 4px rgba(0, 0, 0, 0.05), 0 4px 8px rgba(0, 0, 0, 0.08);
+            --elevation-3: 0 4px 8px rgba(0, 0, 0, 0.06), 0 8px 16px rgba(0, 0, 0, 0.08);
+            --elevation-4: 0 8px 16px rgba(0, 0, 0, 0.08), 0 16px 32px rgba(0, 0, 0, 0.08);
+            --elevation-5: 0 16px 32px rgba(0, 0, 0, 0.10), 0 32px 64px rgba(0, 0, 0, 0.10);
+
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 20px;
+            --radius-xl: 28px;
+            --radius-full: 9999px;
+
+            --transition-speed: 0.25s;
+            --transition-smooth: cubic-bezier(0.2, 0, 0, 1);
+        }
+
+        [data-theme="dark"] {
+            --md-sys-color-primary: #D3B8FF;
+            --md-sys-color-on-primary: #2D007A;
+            --md-sys-color-primary-container: #5B2CD6;
+            --md-sys-color-on-primary-container: #E8DEFF;
+            --md-sys-color-secondary: #AAC7FF;
+            --md-sys-color-on-secondary: #00327A;
+            --md-sys-color-secondary-container: #0050B3;
+            --md-sys-color-on-secondary-container: #D6E4FF;
+            --md-sys-color-tertiary: #C8A8FF;
+            --md-sys-color-on-tertiary: #2B005C;
+            --md-sys-color-tertiary-container: #6A3BCC;
+            --md-sys-color-on-tertiary-container: #F0E6FF;
+            --md-sys-color-error: #FFB4AB;
+            --md-sys-color-on-error: #690005;
+            --md-sys-color-error-container: #93000A;
+            --md-sys-color-on-error-container: #FFDAD6;
+            --md-sys-color-background: #14131C;
+            --md-sys-color-on-background: #E6E3F0;
+            --md-sys-color-surface: #14131C;
+            --md-sys-color-on-surface: #E6E3F0;
+            --md-sys-color-surface-variant: #49455E;
+            --md-sys-color-on-surface-variant: #C8C2DD;
+            --md-sys-color-outline: #948FAD;
+            --md-sys-color-outline-variant: #49455E;
+            --md-sys-color-shadow: #000000;
+            --md-sys-color-scrim: #000000;
+            --md-sys-color-inverse-surface: #E6E3F0;
+            --md-sys-color-inverse-on-surface: #1C1B24;
+            --md-sys-color-inverse-primary: #7C4DFF;
+            --md-sys-color-surface-tint: #D3B8FF;
+            --md-sys-color-surface-container-lowest: #0E0D14;
+            --md-sys-color-surface-container-low: #1C1B24;
+            --md-sys-color-surface-container: #282633;
+            --md-sys-color-surface-container-high: #33303F;
+            --md-sys-color-surface-container-highest: #3E3B4B;
+        }
+
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html,
+        body {
+            height: 100%;
+            width: 100%;
+            overflow: hidden;
+            font-family: var(--md-ref-font-family-fa);
+            background-color: var(--md-sys-color-background);
+            color: var(--md-sys-color-on-background);
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        button {
+            font-family: inherit;
+            cursor: pointer;
+            border: none;
+            background: none;
+            color: inherit;
+            font-size: inherit;
+        }
+
+        input,
+        select {
+            font-family: inherit;
+            font-size: inherit;
+            color: inherit;
+            background: none;
+            border: none;
+            outline: none;
+            width: 100%;
+        }
+
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--md-sys-color-outline-variant);
+            border-radius: var(--radius-full);
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--md-sys-color-outline);
+        }
+
+        #app {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            height: 100dvh;
+            max-height: 100vh;
+            max-height: 100dvh;
+            background-color: var(--md-sys-color-background);
+            transition: background-color var(--transition-speed) ease;
+            overflow: hidden;
+        }
+
+        #app-header {
+            flex-shrink: 0;
+            padding: 12px 20px;
+            background: var(--md-sys-color-surface-container);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--md-sys-color-outline-variant);
+            transition: background var(--transition-speed) ease, border-color var(--transition-speed) ease;
+            z-index: 10;
+        }
+        .header-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .app-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 700;
+            font-size: 1.15rem;
+            color: var(--md-sys-color-primary);
+        }
+        .app-title i {
+            font-size: 1.4rem;
+        }
+        .header-actions {
+            display: flex;
+            gap: 8px;
+        }
+        .header-actions button {
+            width: 40px;
+            height: 40px;
+            border-radius: var(--radius-full);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            background: var(--md-sys-color-surface-container-highest);
+            color: var(--md-sys-color-on-surface-variant);
+            transition: background var(--transition-speed) ease, transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        .header-actions button:hover {
+            background: var(--md-sys-color-surface-container-high);
+            transform: scale(1.04);
+        }
+        .header-actions button:active {
+            transform: scale(0.94);
+        }
+
+        #app-nav {
+            flex-shrink: 0;
+            position: relative;
+            display: flex;
+            align-items: stretch;
+            background: var(--md-sys-color-surface-container);
+            border-bottom: 1px solid var(--md-sys-color-outline-variant);
+            transition: background var(--transition-speed) ease, border-color var(--transition-speed) ease;
+            padding: 0 8px;
+            z-index: 9;
+            height: 60px;
+        }
+        .nav-item {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 0 8px;
+            font-weight: 500;
+            font-size: 0.85rem;
+            color: var(--md-sys-color-on-surface-variant);
+            border-radius: var(--radius-md) var(--radius-md) 0 0;
+            transition: color var(--transition-speed) ease, background 0.15s ease;
+            position: relative;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+        .nav-item i {
+            font-size: 1.1rem;
+        }
+        .nav-item span {
+            display: none;
+        }
+        .nav-item.active {
+            color: var(--md-sys-color-primary);
+            font-weight: 600;
+        }
+        .nav-item.active span {
+            display: inline;
+        }
+        .nav-item:hover {
+            background: var(--md-sys-color-surface-container-highest);
+        }
+        .nav-item:active {
+            transform: scale(0.96);
+        }
+        .nav-indicator {
+            position: absolute;
+            bottom: 0;
+            height: 3px;
+            background: var(--md-sys-color-primary);
+            border-radius: var(--radius-full) var(--radius-full) 0 0;
+            transition: left var(--transition-speed) var(--transition-smooth), width var(--transition-speed) var(--transition-smooth);
+            z-index: 1;
+        }
+
+        #app-content {
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+            background: var(--md-sys-color-background);
+            transition: background var(--transition-speed) ease;
+        }
+
+        .tab-content {
+            position: absolute;
+            inset: 0;
+            padding: 16px 20px 20px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            opacity: 0;
+            transform: translateX(20px) scale(0.98);
+            pointer-events: none;
+            transition: opacity 0.3s var(--transition-smooth), transform 0.35s var(--transition-smooth);
+            will-change: transform, opacity;
+            background: var(--md-sys-color-background);
+        }
+        .tab-content.active {
+            opacity: 1;
+            transform: translateX(0) scale(1);
+            pointer-events: all;
+        }
+        .tab-content.exit {
+            opacity: 0;
+            transform: translateX(-20px) scale(0.98);
+        }
+
+        #app-footer {
+            flex-shrink: 0;
+            padding: 12px 20px 16px;
+            background: var(--md-sys-color-surface-container);
+            border-top: 1px solid var(--md-sys-color-outline-variant);
+            transition: background var(--transition-speed) ease, border-color var(--transition-speed) ease;
+            z-index: 10;
+        }
+        .btn-primary {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            width: 100%;
+            padding: 14px 20px;
+            background: var(--md-sys-color-primary);
+            color: var(--md-sys-color-on-primary);
+            border-radius: var(--radius-lg);
+            font-weight: 700;
+            font-size: 1rem;
+            transition: background 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+            box-shadow: var(--elevation-2);
+            position: relative;
+            overflow: hidden;
+        }
+        .btn-primary:hover {
+            background: var(--md-sys-color-primary);
+            filter: brightness(1.06);
+            box-shadow: var(--elevation-3);
+        }
+        .btn-primary:active {
+            transform: scale(0.97);
+        }
+        .btn-primary i {
+            font-size: 1.2rem;
+        }
+
+        .ripple {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(0);
+            animation: rippleAnim 0.5s ease-out forwards;
+            pointer-events: none;
+        }
+        @keyframes rippleAnim {
+            to {
+                transform: scale(4);
+                opacity: 0;
+            }
+        }
+
+        .section-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+            color: var(--md-sys-color-on-surface);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .section-title i {
+            color: var(--md-sys-color-primary);
+        }
+
+        .ingredient-form {
+            background: var(--md-sys-color-surface-container);
+            border-radius: var(--radius-md);
+            padding: 16px;
+            margin-bottom: 20px;
+            box-shadow: var(--elevation-1);
+            transition: background var(--transition-speed) ease;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px 16px;
+        }
+        .ingredient-form .full-width {
+            grid-column: 1 / -1;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .form-group label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--md-sys-color-on-surface-variant);
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+        .form-group .input-wrapper {
+            position: relative;
+            background: var(--md-sys-color-surface-container-highest);
+            border-radius: var(--radius-sm);
+            padding: 8px 12px;
+            border: 2px solid transparent;
+            transition: border-color 0.2s ease, background 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .form-group .input-wrapper:focus-within {
+            border-color: var(--md-sys-color-primary);
+            background: var(--md-sys-color-surface-container-high);
+        }
+        .form-group .input-wrapper.error {
+            border-color: var(--md-sys-color-error);
+        }
+        .form-group .input-wrapper input,
+        .form-group .input-wrapper select {
+            background: transparent;
+            padding: 2px 0;
+            font-size: 0.95rem;
+            width: 100%;
+            min-width: 0;
+            direction: ltr;
+            text-align: right;
+        }
+        .form-group .input-wrapper select {
+            appearance: none;
+            -webkit-appearance: none;
+        }
+        .form-group .input-wrapper .prefix {
+            font-size: 0.8rem;
+            color: var(--md-sys-color-on-surface-variant);
+            font-weight: 500;
+        }
+        .form-group .helper-text {
+            font-size: 0.7rem;
+            color: var(--md-sys-color-on-surface-variant);
+            margin-top: 2px;
+            min-height: 18px;
+        }
+        .form-group .helper-text.error {
+            color: var(--md-sys-color-error);
+        }
+
+        .btn-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 8px 16px;
+            border-radius: var(--radius-sm);
+            font-weight: 600;
+            font-size: 0.85rem;
+            gap: 6px;
+            transition: background 0.2s ease, transform 0.15s ease;
+            background: var(--md-sys-color-primary-container);
+            color: var(--md-sys-color-on-primary-container);
+        }
+        .btn-icon:hover {
+            background: var(--md-sys-color-primary);
+            color: var(--md-sys-color-on-primary);
+        }
+        .btn-icon:active {
+            transform: scale(0.96);
+        }
+        .btn-icon.danger {
+            background: var(--md-sys-color-error-container);
+            color: var(--md-sys-color-on-error-container);
+        }
+        .btn-icon.danger:hover {
+            background: var(--md-sys-color-error);
+            color: var(--md-sys-color-on-error);
+        }
+
+        .ingredient-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        .ingredient-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 14px;
+            background: var(--md-sys-color-surface-container);
+            border-radius: var(--radius-sm);
+            box-shadow: var(--elevation-1);
+            transition: background var(--transition-speed) ease, transform 0.15s ease;
+            border-right: 4px solid var(--md-sys-color-primary);
+            flex-wrap: wrap;
+        }
+        .ingredient-item .info {
+            flex: 1;
+            min-width: 120px;
+        }
+        .ingredient-item .info .name {
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+        .ingredient-item .info .detail {
+            font-size: 0.8rem;
+            color: var(--md-sys-color-on-surface-variant);
+        }
+        .ingredient-item .actions {
+            display: flex;
+            gap: 4px;
+            margin-right: auto;
+        }
+        .ingredient-item .actions button {
+            width: 32px;
+            height: 32px;
+            border-radius: var(--radius-full);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: transparent;
+            color: var(--md-sys-color-on-surface-variant);
+            transition: background 0.15s ease, color 0.15s ease;
+        }
+        .ingredient-item .actions button:hover {
+            background: var(--md-sys-color-surface-container-highest);
+            color: var(--md-sys-color-primary);
+        }
+        .ingredient-item .actions button.danger:hover {
+            color: var(--md-sys-color-error);
+        }
+        .ingredient-item .actions button:active {
+            transform: scale(0.88);
+        }
+
+        .batch-fields {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px 16px;
+            margin-top: 4px;
+        }
+        .batch-fields .full-width {
+            grid-column: 1 / -1;
+        }
+
+        .group-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .group-card {
+            background: var(--md-sys-color-surface-container);
+            border-radius: var(--radius-md);
+            padding: 14px 16px;
+            box-shadow: var(--elevation-1);
+            transition: background var(--transition-speed) ease, transform 0.15s ease;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .group-card .group-name {
+            font-weight: 600;
+            flex: 1;
+            min-width: 100px;
+        }
+        .group-card .group-actions {
+            display: flex;
+            gap: 4px;
+            flex-wrap: wrap;
+        }
+        .group-card .group-actions button {
+            padding: 4px 10px;
+            border-radius: var(--radius-sm);
+            font-size: 0.75rem;
+            font-weight: 500;
+            background: var(--md-sys-color-surface-container-highest);
+            color: var(--md-sys-color-on-surface-variant);
+            transition: background 0.15s ease, color 0.15s ease;
+        }
+        .group-card .group-actions button:hover {
+            background: var(--md-sys-color-primary-container);
+            color: var(--md-sys-color-on-primary-container);
+        }
+        .group-card .group-actions button.danger:hover {
+            background: var(--md-sys-color-error-container);
+            color: var(--md-sys-color-on-error-container);
+        }
+        .group-card .group-actions button:active {
+            transform: scale(0.94);
+        }
+
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 48px 20px;
+            color: var(--md-sys-color-on-surface-variant);
+            text-align: center;
+            gap: 12px;
+        }
+        .empty-state i {
+            font-size: 3rem;
+            opacity: 0.5;
+        }
+        .empty-state p {
+            max-width: 280px;
+            font-size: 0.95rem;
+        }
+
+        .result-summary {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .result-card {
+            background: var(--md-sys-color-surface-container);
+            border-radius: var(--radius-md);
+            padding: 14px 16px;
+            box-shadow: var(--elevation-1);
+            transition: background var(--transition-speed) ease, transform 0.15s ease;
+            text-align: center;
+        }
+        .result-card .label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--md-sys-color-on-surface-variant);
+            font-weight: 600;
+        }
+        .result-card .value {
+            font-size: 1.3rem;
+            font-weight: 800;
+            margin-top: 4px;
+            color: var(--md-sys-color-on-surface);
+        }
+        .result-card .value.primary {
+            color: var(--md-sys-color-primary);
+        }
+        .result-card .value.success {
+            color: #2E7D32;
+        }
+        .result-card .value.error {
+            color: var(--md-sys-color-error);
+        }
+        .result-card.highlight {
+            background: var(--md-sys-color-primary-container);
+            border: 2px solid var(--md-sys-color-primary);
+        }
+        .result-card.highlight .value {
+            color: var(--md-sys-color-on-primary-container);
+        }
+
+        .result-details {
+            background: var(--md-sys-color-surface-container);
+            border-radius: var(--radius-md);
+            padding: 16px;
+            box-shadow: var(--elevation-1);
+            transition: background var(--transition-speed) ease;
+            margin-top: 12px;
+        }
+        .result-details .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 0;
+            border-bottom: 1px solid var(--md-sys-color-outline-variant);
+            font-size: 0.9rem;
+        }
+        .result-details .detail-row:last-child {
+            border-bottom: none;
+        }
+        .result-details .detail-row .label {
+            color: var(--md-sys-color-on-surface-variant);
+        }
+        .result-details .detail-row .value {
+            font-weight: 600;
+        }
+
+        .chart-container {
+            margin: 16px 0 12px;
+            display: flex;
+            justify-content: center;
+        }
+        .chart-container svg {
+            max-width: 200px;
+            width: 100%;
+            height: auto;
+            border-radius: 50%;
+            transform: rotate(-90deg);
+        }
+
+        .accordion {
+            margin-top: 12px;
+            border-radius: var(--radius-sm);
+            overflow: hidden;
+            border: 1px solid var(--md-sys-color-outline-variant);
+        }
+        .accordion-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            background: var(--md-sys-color-surface-container-highest);
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s ease;
+            user-select: none;
+        }
+        .accordion-header:hover {
+            background: var(--md-sys-color-surface-container-high);
+        }
+        .accordion-header i {
+            transition: transform 0.25s ease;
+        }
+        .accordion-header.open i {
+            transform: rotate(180deg);
+        }
+        .accordion-body {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s var(--transition-smooth), padding 0.3s var(--transition-smooth);
+            padding: 0 16px;
+            background: var(--md-sys-color-surface-container);
+        }
+        .accordion-body.open {
+            max-height: 600px;
+            padding: 12px 16px 16px;
+        }
+        .accordion-body .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            font-size: 0.85rem;
+            border-bottom: 1px dashed var(--md-sys-color-outline-variant);
+        }
+
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s ease;
+        }
+        .modal-overlay.visible {
+            opacity: 1;
+            pointer-events: all;
+        }
+        .modal {
+            background: var(--md-sys-color-surface-container);
+            border-radius: var(--radius-lg);
+            padding: 24px 28px;
+            max-width: 420px;
+            width: calc(100% - 40px);
+            box-shadow: var(--elevation-5);
+            transform: scale(0.9) translateY(20px);
+            transition: transform 0.3s var(--transition-smooth);
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .modal-overlay.visible .modal {
+            transform: scale(1) translateY(0);
+        }
+        .modal h3 {
+            margin-bottom: 8px;
+        }
+        .modal p {
+            margin-bottom: 16px;
+            color: var(--md-sys-color-on-surface-variant);
+        }
+        .modal .modal-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+            margin-top: 12px;
+        }
+        .modal .modal-actions button {
+            padding: 8px 20px;
+            border-radius: var(--radius-sm);
+            font-weight: 600;
+            transition: background 0.15s ease;
+        }
+        .modal .modal-actions .btn-secondary {
+            background: var(--md-sys-color-surface-container-highest);
+            color: var(--md-sys-color-on-surface);
+        }
+        .modal .modal-actions .btn-secondary:hover {
+            background: var(--md-sys-color-surface-container-high);
+        }
+        .modal .modal-actions .btn-primary {
+            background: var(--md-sys-color-primary);
+            color: var(--md-sys-color-on-primary);
+        }
+        .modal .modal-actions .btn-primary:hover {
+            filter: brightness(1.06);
+        }
+        .modal .modal-actions .btn-danger {
+            background: var(--md-sys-color-error);
+            color: var(--md-sys-color-on-error);
+        }
+        .modal .modal-actions .btn-danger:hover {
+            filter: brightness(0.9);
+        }
+
+        #toast-container {
+            position: fixed;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 2000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            pointer-events: none;
+            width: 90%;
+            max-width: 420px;
+        }
+        .toast {
+            background: var(--md-sys-color-surface-container-high);
+            color: var(--md-sys-color-on-surface);
+            padding: 12px 20px;
+            border-radius: var(--radius-md);
+            box-shadow: var(--elevation-3);
+            font-weight: 500;
+            font-size: 0.9rem;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border: 1px solid var(--md-sys-color-outline-variant);
+            transform: translateY(80px) scale(0.9);
+            opacity: 0;
+            transition: transform 0.3s var(--transition-smooth), opacity 0.3s var(--transition-smooth);
+            pointer-events: all;
+            width: 100%;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .toast.show {
+            transform: translateY(0) scale(1);
+            opacity: 1;
+        }
+        .toast.success {
+            border-right: 4px solid #2E7D32;
+        }
+        .toast.error {
+            border-right: 4px solid var(--md-sys-color-error);
+        }
+        .toast.info {
+            border-right: 4px solid var(--md-sys-color-primary);
+        }
+
+        @media (min-width: 600px) {
+            .nav-item span {
+                display: inline;
+            }
+            .nav-item {
+                gap: 10px;
+                font-size: 0.9rem;
+            }
+            .ingredient-form {
+                grid-template-columns: 1fr 1fr 1fr;
+            }
+            .batch-fields {
+                grid-template-columns: 1fr 1fr 1fr;
+            }
+            .result-summary {
+                grid-template-columns: repeat(4, 1fr);
+            }
+            #app-header {
+                padding: 12px 32px;
+            }
+            #app-content {
+                padding: 20px 32px;
+            }
+            #app-footer {
+                padding: 12px 32px 20px;
+            }
+        }
+
+        @media (min-width: 900px) {
+            .ingredient-form {
+                grid-template-columns: 1fr 1fr 1fr 1fr;
+            }
+            .batch-fields {
+                grid-template-columns: 1fr 1fr 1fr 1fr;
+            }
+            .result-summary {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+
+        .flex {
+            display: flex;
+        }
+        .flex-center {
+            align-items: center;
+            justify-content: center;
+        }
+        .gap-8 {
+            gap: 8px;
+        }
+        .gap-12 {
+            gap: 12px;
+        }
+        .mt-8 {
+            margin-top: 8px;
+        }
+        .mt-16 {
+            margin-top: 16px;
+        }
+        .mb-8 {
+            margin-bottom: 8px;
+        }
+        .text-center {
+            text-align: center;
+        }
+        .w-full {
+            width: 100%;
+        }
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="app">
+
+        <header id="app-header">
+            <div class="header-content">
+                <div class="app-title">
+                    <i class="fas fa-cake"></i>
+                    <span>محاسبه‌گر شیرینی</span>
+                </div>
+                <div class="header-actions">
+                    <button id="theme-toggle" aria-label="تغییر تم">
+                        <i class="fas fa-moon"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <nav id="app-nav">
+            <button class="nav-item active" data-tab="ingredients">
+                <i class="fas fa-list"></i>
+                <span>مواد اولیه</span>
+            </button>
+            <button class="nav-item" data-tab="groups">
+                <i class="fas fa-folder"></i>
+                <span>گروه‌ها</span>
+            </button>
+            <button class="nav-item" data-tab="result">
+                <i class="fas fa-chart-pie"></i>
+                <span>نتیجه</span>
+            </button>
+            <div class="nav-indicator" style="left:0; width:33.333%;"></div>
+        </nav>
+
+        <main id="app-content">
+
+            <!-- Tab: Ingredients -->
+            <section id="tab-ingredients" class="tab-content active">
+                <div class="section-title">
+                    <i class="fas fa-cubes"></i>
+                    مواد اولیه
+                </div>
+
+                <form id="ingredient-form" class="ingredient-form">
+                    <div class="form-group full-width">
+                        <label>نام ماده</label>
+                        <div class="input-wrapper">
+                            <input type="text" id="ing-name" placeholder="مثلاً آرد" required />
+                        </div>
+                        <div class="helper-text"></div>
+                    </div>
+                    <div class="form-group">
+                        <label>نوع</label>
+                        <div class="input-wrapper">
+                            <select id="ing-type">
+                                <option value="weight">وزنی (گرم)</option>
+                                <option value="count">تعدادی</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group" id="weight-fields">
+                        <label>وزن کل (گرم)</label>
+                        <div class="input-wrapper">
+                            <input type="text" id="ing-total-weight" placeholder="۰" inputmode="decimal" />
+                        </div>
+                        <div class="helper-text"></div>
+                    </div>
+                    <div class="form-group" id="weight-price-fields">
+                        <label>قیمت کل (تومان)</label>
+                        <div class="input-wrapper">
+                            <span class="prefix">تومان</span>
+                            <input type="text" id="ing-total-price" placeholder="۰" inputmode="decimal" />
+                        </div>
+                        <div class="helper-text"></div>
+                    </div>
+                    <div class="form-group" id="weight-used-fields">
+                        <label>مقدار مصرفی (گرم)</label>
+                        <div class="input-wrapper">
+                            <input type="text" id="ing-used-amount" placeholder="۰" inputmode="decimal" />
+                        </div>
+                        <div class="helper-text"></div>
+                    </div>
+                    <div class="form-group hidden" id="count-price-fields">
+                        <label>قیمت هر واحد (تومان)</label>
+                        <div class="input-wrapper">
+                            <span class="prefix">تومان</span>
+                            <input type="text" id="ing-unit-price" placeholder="۰" inputmode="decimal" />
+                        </div>
+                        <div class="helper-text"></div>
+                    </div>
+                    <div class="form-group hidden" id="count-used-fields">
+                        <label>تعداد مصرفی</label>
+                        <div class="input-wrapper">
+                            <input type="text" id="ing-count-used" placeholder="۰" inputmode="decimal" />
+                        </div>
+                        <div class="helper-text"></div>
+                    </div>
+                    <div class="form-group full-width" style="display:flex; gap:8px; margin-top:4px;">
+                        <button type="submit" class="btn-icon" style="flex:1;">
+                            <i class="fas fa-plus"></i> افزودن
+                        </button>
+                    </div>
+                </form>
+
+                <div class="section-title" style="margin-top:8px; font-size:0.95rem;">
+                    <i class="fas fa-list-ul"></i>
+                    مواد اضافه‌شده
+                    <span id="ing-count-badge" style="margin-right:auto; font-weight:400; font-size:0.8rem; color:var(--md-sys-color-on-surface-variant);">۰</span>
+                </div>
+                <div id="ingredient-list" class="ingredient-list"></div>
+
+                <!-- تنظیمات خروجی + درصد سود متغیر + ذخیره گروه -->
+                <div class="section-title" style="margin-top:20px;">
+                    <i class="fas fa-cog"></i>
+                    تنظیمات خروجی و سود
+                </div>
+                <div class="batch-fields">
+                    <div class="form-group">
+                        <label>تعداد خروجی (عدد)</label>
+                        <div class="input-wrapper">
+                            <input type="text" id="batch-count" value="1" inputmode="decimal" />
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>هزینه بسته‌بندی هر عدد (تومان)</label>
+                        <div class="input-wrapper">
+                            <span class="prefix">تومان</span>
+                            <input type="text" id="batch-packaging" value="0" inputmode="decimal" />
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>درصد سود</label>
+                        <div class="input-wrapper">
+                            <span class="prefix">%</span>
+                            <input type="text" id="profit-percent" value="30" inputmode="decimal" />
+                        </div>
+                    </div>
+                    <div class="form-group" style="grid-column: 1 / -1; display: flex; gap: 8px; align-items: flex-end;">
+                        <div style="flex: 2;">
+                            <label>نام گروه برای ذخیره</label>
+                            <div class="input-wrapper">
+                                <input type="text" id="group-name-input" placeholder="مثلاً: کیک وانیلی" />
+                            </div>
+                        </div>
+                        <button id="save-group-inline" class="btn-icon" style="flex: 0 0 auto; height: 42px;">
+                            <i class="fas fa-save"></i> ذخیره گروه
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Tab: Groups -->
+            <section id="tab-groups" class="tab-content">
+                <div class="section-title">
+                    <i class="fas fa-folder-open"></i>
+                    گروه‌های ذخیره‌شده
+                </div>
+                <div style="display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap;">
+                    <button id="save-group-btn" class="btn-icon"><i class="fas fa-save"></i> ذخیره گروه (از اینجا)</button>
+                    <button id="clear-all-groups-btn" class="btn-icon danger"><i class="fas fa-trash"></i> پاک کردن همه</button>
+                </div>
+                <div id="group-list" class="group-list"></div>
+            </section>
+
+            <!-- Tab: Result -->
+            <section id="tab-result" class="tab-content">
+                <div class="section-title">
+                    <i class="fas fa-chart-pie"></i>
+                    نتیجه محاسبه
+                </div>
+                <div id="result-container">
+                    <div class="empty-state">
+                        <i class="fas fa-calculator"></i>
+                        <p>مواد اولیه را اضافه کنید و دکمه محاسبه را بزنید.</p>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+
+        <footer id="app-footer">
+            <button id="calculate-btn" class="btn-primary">
+                <i class="fas fa-calculator"></i>
+                محاسبه قیمت
+            </button>
+        </footer>
+    </div>
+
+    <div id="toast-container"></div>
+
+    <div id="modal-overlay" class="modal-overlay">
+        <div class="modal" id="modal-box"></div>
+    </div>
+
+    <script>
+        (function() {
+            'use strict';
+
+            const state = {
+                ingredients: [],
+                groups: [],
+                batchCount: 1,
+                packagingCost: 0,
+                profitPercent: 30,
+                theme: 'light',
+                currentTab: 'ingredients',
+                result: null,
+            };
+
+            const $ = (sel) => document.querySelector(sel);
+            const $$ = (sel) => document.querySelectorAll(sel);
+
+            const dom = {
+                app: $('#app'),
+                navItems: $$('.nav-item'),
+                navIndicator: $('.nav-indicator'),
+                tabs: {
+                    ingredients: $('#tab-ingredients'),
+                    groups: $('#tab-groups'),
+                    result: $('#tab-result'),
+                },
+                ingredientForm: $('#ingredient-form'),
+                ingName: $('#ing-name'),
+                ingType: $('#ing-type'),
+                ingTotalWeight: $('#ing-total-weight'),
+                ingTotalPrice: $('#ing-total-price'),
+                ingUsedAmount: $('#ing-used-amount'),
+                ingUnitPrice: $('#ing-unit-price'),
+                ingCountUsed: $('#ing-count-used'),
+                ingredientList: $('#ingredient-list'),
+                ingCountBadge: $('#ing-count-badge'),
+                batchCount: $('#batch-count'),
+                batchPackaging: $('#batch-packaging'),
+                profitPercent: $('#profit-percent'),
+                groupNameInput: $('#group-name-input'),
+                saveGroupInline: $('#save-group-inline'),
+                groupList: $('#group-list'),
+                saveGroupBtn: $('#save-group-btn'),
+                clearAllGroupsBtn: $('#clear-all-groups-btn'),
+                resultContainer: $('#result-container'),
+                calculateBtn: $('#calculate-btn'),
+                themeToggle: $('#theme-toggle'),
+                modalOverlay: $('#modal-overlay'),
+                modalBox: $('#modal-box'),
+                toastContainer: $('#toast-container'),
+            };
+
+            // ---------- Helpers ----------
+            function generateId() {
+                return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+            }
+
+            // تبدیل رشته عددی با پشتیبانی از اعداد فارسی، ویرگول و اعشار به عدد
+            function parseNumber(str) {
+                if (!str || str.trim() === '') return NaN;
+                let s = str.trim();
+                // تبدیل اعداد فارسی به انگلیسی
+                const persianDigits = '۰۱۲۳۴۵۶۷۸۹';
+                const englishDigits = '0123456789';
+                for (let i = 0; i < 10; i++) {
+                    s = s.replace(new RegExp(persianDigits[i], 'g'), englishDigits[i]);
+                }
+                // حذف ویرگول (جداکننده هزارگان)
+                s = s.replace(/,/g, '');
+                const num = parseFloat(s);
+                return isNaN(num) ? NaN : num;
+            }
+
+            function formatNumber(num) {
+                if (num === undefined || num === null || isNaN(num)) return '۰';
+                const parts = num.toString().split('.');
+                const intPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+                if (parts.length === 2) {
+                    let dec = parts[1].slice(0, 2);
+                    return intPart + '.' + dec;
+                }
+                return intPart;
+            }
+
+            function debounce(fn, delay) {
+                let timer;
+                return function(...args) {
+                    clearTimeout(timer);
+                    timer = setTimeout(() => fn.apply(this, args), delay);
+                };
+            }
+
+            // ---------- Toast ----------
+            function showToast(message, type = 'info', duration = 3000) {
+                const toast = document.createElement('div');
+                toast.className = `toast ${type}`;
+                toast.innerHTML =
+                    `<i class="fas ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle'}"></i> ${message}`;
+                dom.toastContainer.appendChild(toast);
+                requestAnimationFrame(() => toast.classList.add('show'));
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                    setTimeout(() => toast.remove(), 350);
+                }, duration);
+            }
+
+            // ---------- Modal ----------
+            let modalResolve = null;
+
+            function showModal(contentHTML) {
+                return new Promise((resolve) => {
+                    dom.modalBox.innerHTML = contentHTML;
+                    dom.modalOverlay.classList.add('visible');
+                    modalResolve = resolve;
+                    const confirmBtn = dom.modalBox.querySelector('[data-modal-confirm]');
+                    const cancelBtn = dom.modalBox.querySelector('[data-modal-cancel]');
+                    if (confirmBtn) {
+                        confirmBtn.addEventListener('click', () => {
+                            dom.modalOverlay.classList.remove('visible');
+                            if (modalResolve) modalResolve(true);
+                        });
+                    }
+                    if (cancelBtn) {
+                        cancelBtn.addEventListener('click', () => {
+                            dom.modalOverlay.classList.remove('visible');
+                            if (modalResolve) modalResolve(false);
+                        });
+                    }
+                    dom.modalOverlay.addEventListener('click', function handler(e) {
+                        if (e.target === dom.modalOverlay) {
+                            dom.modalOverlay.classList.remove('visible');
+                            if (modalResolve) modalResolve(false);
+                            dom.modalOverlay.removeEventListener('click', handler);
+                        }
+                    });
+                });
+            }
+
+            // ---------- Theme ----------
+            function setTheme(theme) {
+                state.theme = theme;
+                document.documentElement.setAttribute('data-theme', theme === 'dark' ? 'dark' : '');
+                const icon = dom.themeToggle.querySelector('i');
+                icon.className = theme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+                localStorage.setItem('cake_calc_theme', theme);
+            }
+
+            function toggleTheme() {
+                setTheme(state.theme === 'light' ? 'dark' : 'light');
+            }
+
+            function detectTheme() {
+                const stored = localStorage.getItem('cake_calc_theme');
+                if (stored === 'dark' || stored === 'light') return stored;
+                return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            }
+
+            // ---------- Navigation ----------
+            function switchTab(tabId) {
+                if (state.currentTab === tabId) return;
+                const oldTab = state.currentTab;
+                state.currentTab = tabId;
+
+                dom.navItems.forEach((btn) => {
+                    btn.classList.toggle('active', btn.dataset.tab === tabId);
+                });
+
+                const activeBtn = document.querySelector(`.nav-item[data-tab="${tabId}"]`);
+                if (activeBtn) {
+                    const rect = activeBtn.getBoundingClientRect();
+                    const navRect = dom.navIndicator.parentElement.getBoundingClientRect();
+                    dom.navIndicator.style.left = (rect.left - navRect.left) + 'px';
+                    dom.navIndicator.style.width = rect.width + 'px';
+                }
+
+                const oldEl = dom.tabs[oldTab];
+                const newEl = dom.tabs[tabId];
+                if (oldEl) {
+                    oldEl.classList.remove('active');
+                    oldEl.classList.add('exit');
+                    setTimeout(() => oldEl.classList.remove('exit'), 400);
+                }
+                if (newEl) newEl.classList.add('active');
+                localStorage.setItem('cake_calc_tab', tabId);
+            }
+
+            // ---------- Ingredients ----------
+            function renderIngredients() {
+                const list = dom.ingredientList;
+                if (state.ingredients.length === 0) {
+                    list.innerHTML = `
+                        <div class="empty-state" style="padding:20px 0;">
+                            <i class="fas fa-plus-circle"></i>
+                            <p style="font-size:0.9rem;">هنوز ماده‌ای اضافه نشده است.</p>
+                        </div>
+                    `;
+                } else {
+                    list.innerHTML = state.ingredients.map((ing) => {
+                        const typeLabel = ing.type === 'weight' ? 'وزنی' : 'تعدادی';
+                        let detail = '';
+                        if (ing.type === 'weight') {
+                            detail =
+                                `وزن کل: ${formatNumber(ing.totalWeight)} گرم | قیمت: ${formatNumber(ing.totalPrice)} تومان | مصرف: ${formatNumber(ing.usedAmount)} گرم`;
+                        } else {
+                            detail =
+                                `قیمت واحد: ${formatNumber(ing.unitPrice)} تومان | تعداد: ${formatNumber(ing.countUsed)}`;
+                        }
+                        return `
+                            <div class="ingredient-item" data-id="${ing.id}">
+                                <div class="info">
+                                    <div class="name">${ing.name}</div>
+                                    <div class="detail">${typeLabel} — ${detail}</div>
+                                </div>
+                                <div class="actions">
+                                    <button class="edit-ing" data-id="${ing.id}" title="ویرایش"><i class="fas fa-pen"></i></button>
+                                    <button class="remove-ing danger" data-id="${ing.id}" title="حذف"><i class="fas fa-trash-alt"></i></button>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+
+                    list.querySelectorAll('.remove-ing').forEach((btn) => {
+                        btn.addEventListener('click', () => removeIngredient(btn.dataset.id));
+                    });
+                    list.querySelectorAll('.edit-ing').forEach((btn) => {
+                        btn.addEventListener('click', () => editIngredient(btn.dataset.id));
+                    });
+                }
+                dom.ingCountBadge.textContent = state.ingredients.length;
+                saveState();
+            }
+
+            // ----- Add ingredient -----
+            function addIngredient(e) {
+                e.preventDefault();
+                const name = dom.ingName.value.trim();
+                if (!name) {
+                    showToast('لطفاً نام ماده را وارد کنید.', 'error');
+                    dom.ingName.focus();
+                    return;
+                }
+
+                const type = dom.ingType.value;
+                const ing = {
+                    id: generateId(),
+                    name,
+                    type,
+                    totalWeight: 0,
+                    totalPrice: 0,
+                    usedAmount: 0,
+                    unitPrice: 0,
+                    countUsed: 0,
+                };
+
+                if (type === 'weight') {
+                    const tw = parseNumber(dom.ingTotalWeight.value);
+                    const tp = parseNumber(dom.ingTotalPrice.value);
+                    const ua = parseNumber(dom.ingUsedAmount.value);
+                    if (isNaN(tw) || tw <= 0) { showToast('وزن کل معتبر وارد کنید.', 'error'); return; }
+                    if (isNaN(tp) || tp < 0) { showToast('قیمت کل معتبر وارد کنید.', 'error'); return; }
+                    if (isNaN(ua) || ua < 0) { showToast('مقدار مصرفی معتبر وارد کنید.', 'error'); return; }
+                    if (ua > tw) { showToast('مقدار مصرفی نمی‌تواند از وزن کل بیشتر باشد.', 'error'); return; }
+                    ing.totalWeight = tw;
+                    ing.totalPrice = tp;
+                    ing.usedAmount = ua;
+                } else {
+                    const up = parseNumber(dom.ingUnitPrice.value);
+                    const cu = parseNumber(dom.ingCountUsed.value);
+                    if (isNaN(up) || up < 0) { showToast('قیمت واحد معتبر وارد کنید.', 'error'); return; }
+                    if (isNaN(cu) || cu < 0) { showToast('تعداد مصرفی معتبر وارد کنید.', 'error'); return; }
+                    ing.unitPrice = up;
+                    ing.countUsed = cu;
+                }
+
+                state.ingredients.push(ing);
+                renderIngredients();
+                dom.ingName.value = '';
+                dom.ingTotalWeight.value = '';
+                dom.ingTotalPrice.value = '';
+                dom.ingUsedAmount.value = '';
+                dom.ingUnitPrice.value = '';
+                dom.ingCountUsed.value = '';
+                dom.ingName.focus();
+                showToast(`«${name}» اضافه شد.`, 'success');
+                saveState();
+                if (state.result) calculate();
+            }
+
+            // ----- Remove ingredient -----
+            function removeIngredient(id) {
+                const ing = state.ingredients.find(i => i.id === id);
+                if (!ing) return;
+                showModal(`
+                    <h3>حذف ماده</h3>
+                    <p>آیا از حذف «${ing.name}» مطمئن هستید؟</p>
+                    <div class="modal-actions">
+                        <button class="btn-secondary" data-modal-cancel>انصراف</button>
+                        <button class="btn-danger" data-modal-confirm>تأیید</button>
+                    </div>
+                `).then((confirmed) => {
+                    if (confirmed) {
+                        state.ingredients = state.ingredients.filter(i => i.id !== id);
+                        renderIngredients();
+                        showToast('ماده حذف شد.', 'info');
+                        saveState();
+                        if (state.ingredients.length === 0) {
+                            state.result = null;
+                            renderResult(null);
+                            saveState();
+                        } else if (state.result) calculate();
+                    }
+                });
+            }
+
+            // ----- Edit ingredient -----
+            function editIngredient(id) {
+                const ing = state.ingredients.find(i => i.id === id);
+                if (!ing) return;
+
+                const isWeight = ing.type === 'weight';
+                const weightFields = `
+                    <div class="form-group">
+                        <label>وزن کل (گرم)</label>
+                        <div class="input-wrapper">
+                            <input type="text" id="edit-total-weight" value="${ing.totalWeight}" inputmode="decimal" />
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>قیمت کل (تومان)</label>
+                        <div class="input-wrapper">
+                            <span class="prefix">تومان</span>
+                            <input type="text" id="edit-total-price" value="${ing.totalPrice}" inputmode="decimal" />
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>مقدار مصرفی (گرم)</label>
+                        <div class="input-wrapper">
+                            <input type="text" id="edit-used-amount" value="${ing.usedAmount}" inputmode="decimal" />
+                        </div>
+                    </div>
+                `;
+                const countFields = `
+                    <div class="form-group">
+                        <label>قیمت هر واحد (تومان)</label>
+                        <div class="input-wrapper">
+                            <span class="prefix">تومان</span>
+                            <input type="text" id="edit-unit-price" value="${ing.unitPrice}" inputmode="decimal" />
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>تعداد مصرفی</label>
+                        <div class="input-wrapper">
+                            <input type="text" id="edit-count-used" value="${ing.countUsed}" inputmode="decimal" />
+                        </div>
+                    </div>
+                `;
+
+                const modalContent = `
+                    <h3>ویرایش ماده</h3>
+                    <form id="edit-form" style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:12px;">
+                        <div class="form-group full-width" style="grid-column:1/-1;">
+                            <label>نام ماده</label>
+                            <div class="input-wrapper">
+                                <input type="text" id="edit-name" value="${ing.name}" required />
+                            </div>
+                        </div>
+                        <div class="form-group full-width" style="grid-column:1/-1;">
+                            <label>نوع</label>
+                            <div class="input-wrapper">
+                                <select id="edit-type">
+                                    <option value="weight" ${isWeight?'selected':''}>وزنی (گرم)</option>
+                                    <option value="count" ${!isWeight?'selected':''}>تعدادی</option>
+                                </select>
+                            </div>
+                        </div>
+                        ${isWeight ? weightFields : countFields}
+                        <div class="modal-actions" style="grid-column:1/-1; margin-top:8px;">
+                            <button type="button" class="btn-secondary" data-modal-cancel>انصراف</button>
+                            <button type="submit" class="btn-primary" data-modal-confirm>ذخیره</button>
+                        </div>
+                    </form>
+                `;
+
+                showModal(modalContent).then(() => {});
+                const editForm = document.getElementById('edit-form');
+                if (editForm) {
+                    editForm.addEventListener('submit', function(e) {
+                        e.preventDefault();
+                        const newName = document.getElementById('edit-name').value.trim();
+                        if (!newName) { showToast('نام نمی‌تواند خالی باشد.', 'error'); return; }
+                        const newType = document.getElementById('edit-type').value;
+                        const updated = { ...ing, name: newName, type: newType };
+                        if (newType === 'weight') {
+                            const tw = parseNumber(document.getElementById('edit-total-weight').value);
+                            const tp = parseNumber(document.getElementById('edit-total-price').value);
+                            const ua = parseNumber(document.getElementById('edit-used-amount').value);
+                            if (isNaN(tw) || tw <= 0) { showToast('وزن کل معتبر وارد کنید.', 'error'); return; }
+                            if (isNaN(tp) || tp < 0) { showToast('قیمت کل معتبر وارد کنید.', 'error'); return; }
+                            if (isNaN(ua) || ua < 0) { showToast('مقدار مصرفی معتبر وارد کنید.', 'error'); return; }
+                            if (ua > tw) { showToast('مقدار مصرفی نمی‌تواند از وزن کل بیشتر باشد.', 'error'); return; }
+                            updated.totalWeight = tw;
+                            updated.totalPrice = tp;
+                            updated.usedAmount = ua;
+                            updated.unitPrice = 0;
+                            updated.countUsed = 0;
+                        } else {
+                            const up = parseNumber(document.getElementById('edit-unit-price').value);
+                            const cu = parseNumber(document.getElementById('edit-count-used').value);
+                            if (isNaN(up) || up < 0) { showToast('قیمت واحد معتبر وارد کنید.', 'error'); return; }
+                            if (isNaN(cu) || cu < 0) { showToast('تعداد مصرفی معتبر وارد کنید.', 'error'); return; }
+                            updated.unitPrice = up;
+                            updated.countUsed = cu;
+                            updated.totalWeight = 0;
+                            updated.totalPrice = 0;
+                            updated.usedAmount = 0;
+                        }
+                        const index = state.ingredients.findIndex(i => i.id === id);
+                        if (index !== -1) state.ingredients[index] = updated;
+                        renderIngredients();
+                        saveState();
+                        dom.modalOverlay.classList.remove('visible');
+                        if (state.result) calculate();
+                        showToast('ماده ویرایش شد.', 'success');
+                    });
+                }
+            }
+
+            // ---------- Groups ----------
+            function renderGroups() {
+                const list = dom.groupList;
+                if (state.groups.length === 0) {
+                    list.innerHTML = `
+                        <div class="empty-state">
+                            <i class="fas fa-folder"></i>
+                            <p>هیچ گروهی ذخیره نشده است.</p>
+                        </div>
+                    `;
+                    return;
+                }
+                list.innerHTML = state.groups.map((g) => `
+                    <div class="group-card" data-id="${g.id}">
+                        <span class="group-name">${g.name}</span>
+                        <span style="font-size:0.7rem;color:var(--md-sys-color-on-surface-variant);">${g.ingredients.length} ماده</span>
+                        <div class="group-actions">
+                            <button class="load-group" data-id="${g.id}"><i class="fas fa-upload"></i> بارگذاری</button>
+                            <button class="rename-group" data-id="${g.id}"><i class="fas fa-pen"></i></button>
+                            <button class="copy-group" data-id="${g.id}"><i class="fas fa-copy"></i></button>
+                            <button class="delete-group danger" data-id="${g.id}"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </div>
+                `).join('');
+
+                list.querySelectorAll('.load-group').forEach(btn => btn.addEventListener('click', () => loadGroup(btn
+                .dataset.id)));
+                list.querySelectorAll('.rename-group').forEach(btn => btn.addEventListener('click', () => renameGroup(btn
+                    .dataset.id)));
+                list.querySelectorAll('.copy-group').forEach(btn => btn.addEventListener('click', () => copyGroup(btn
+                    .dataset.id)));
+                list.querySelectorAll('.delete-group').forEach(btn => btn.addEventListener('click', () => deleteGroup(btn
+                    .dataset.id)));
+            }
+
+            function saveGroup(name) {
+                if (state.ingredients.length === 0) {
+                    showToast('ابتدا مواد اولیه را اضافه کنید.', 'error');
+                    return false;
+                }
+                const trimmed = name.trim();
+                if (!trimmed) { showToast('نام گروه نمی‌تواند خالی باشد.', 'error'); return false; }
+                const group = {
+                    id: generateId(),
+                    name: trimmed,
+                    ingredients: JSON.parse(JSON.stringify(state.ingredients)),
+                };
+                state.groups.push(group);
+                renderGroups();
+                saveState();
+                showToast(`گروه «${trimmed}» ذخیره شد.`, 'success');
+                return true;
+            }
+
+            function loadGroup(id) {
+                const group = state.groups.find(g => g.id === id);
+                if (!group) return;
+                if (state.ingredients.length > 0) {
+                    showModal(`
+                        <h3>بارگذاری گروه</h3>
+                        <p>بارگذاری این گروه، مواد فعلی را جایگزین خواهد کرد. ادامه می‌دهید؟</p>
+                        <div class="modal-actions">
+                            <button class="btn-secondary" data-modal-cancel>انصراف</button>
+                            <button class="btn-primary" data-modal-confirm>ادامه</button>
+                        </div>
+                    `).then((confirmed) => {
+                        if (confirmed) {
+                            state.ingredients = JSON.parse(JSON.stringify(group.ingredients));
+                            renderIngredients();
+                            saveState();
+                            switchTab('ingredients');
+                            showToast(`گروه «${group.name}» بارگذاری شد.`, 'success');
+                            if (state.result) calculate();
+                        }
+                    });
+                } else {
+                    state.ingredients = JSON.parse(JSON.stringify(group.ingredients));
+                    renderIngredients();
+                    saveState();
+                    switchTab('ingredients');
+                    showToast(`گروه «${group.name}» بارگذاری شد.`, 'success');
+                    if (state.result) calculate();
+                }
+            }
+
+            function renameGroup(id) {
+                const group = state.groups.find(g => g.id === id);
+                if (!group) return;
+                const newName = prompt('نام جدید را وارد کنید:', group.name);
+                if (newName === null) return;
+                const trimmed = newName.trim();
+                if (!trimmed) { showToast('نام نمی‌تواند خالی باشد.', 'error'); return; }
+                group.name = trimmed;
+                renderGroups();
+                saveState();
+                showToast('نام گروه تغییر کرد.', 'info');
+            }
+
+            function copyGroup(id) {
+                const group = state.groups.find(g => g.id === id);
+                if (!group) return;
+                const copy = {
+                    id: generateId(),
+                    name: group.name + ' (کپی)',
+                    ingredients: JSON.parse(JSON.stringify(group.ingredients)),
+                };
+                state.groups.push(copy);
+                renderGroups();
+                saveState();
+                showToast('کپی گروه ایجاد شد.', 'success');
+            }
+
+            function deleteGroup(id) {
+                const group = state.groups.find(g => g.id === id);
+                if (!group) return;
+                showModal(`
+                    <h3>حذف گروه</h3>
+                    <p>آیا از حذف گروه «${group.name}» مطمئن هستید؟</p>
+                    <div class="modal-actions">
+                        <button class="btn-secondary" data-modal-cancel>انصراف</button>
+                        <button class="btn-danger" data-modal-confirm>تأیید</button>
+                    </div>
+                `).then((confirmed) => {
+                    if (confirmed) {
+                        state.groups = state.groups.filter(g => g.id !== id);
+                        renderGroups();
+                        saveState();
+                        showToast('گروه حذف شد.', 'info');
+                    }
+                });
+            }
+
+            function clearAllGroups() {
+                if (state.groups.length === 0) { showToast('هیچ گروهی وجود ندارد.', 'info'); return; }
+                showModal(`
+                    <h3>پاک کردن همه گروه‌ها</h3>
+                    <p>آیا از پاک کردن تمام گروه‌ها مطمئن هستید؟ این عمل قابل بازگشت نیست.</p>
+                    <div class="modal-actions">
+                        <button class="btn-secondary" data-modal-cancel>انصراف</button>
+                        <button class="btn-danger" data-modal-confirm>تأیید</button>
+                    </div>
+                `).then((confirmed) => {
+                    if (confirmed) {
+                        state.groups = [];
+                        renderGroups();
+                        saveState();
+                        showToast('همه گروه‌ها پاک شدند.', 'info');
+                    }
+                });
+            }
+
+            // ---------- Calculation ----------
+            function calculate() {
+                const ingredients = state.ingredients;
+                if (ingredients.length === 0) {
+                    showToast('حداقل یک ماده اولیه اضافه کنید.', 'error');
+                    return;
+                }
+
+                let totalMaterialCost = 0;
+                const details = ingredients.map((ing) => {
+                    let cost = 0;
+                    if (ing.type === 'weight') {
+                        if (ing.totalWeight > 0 && ing.totalPrice >= 0) {
+                            cost = (ing.totalPrice / ing.totalWeight) * ing.usedAmount;
+                        }
+                    } else {
+                        cost = (ing.unitPrice || 0) * (ing.countUsed || 0);
+                    }
+                    totalMaterialCost += cost;
+                    return { ...ing, cost };
+                });
+
+                const batchCount = parseNumber(dom.batchCount.value) || 1;
+                const packagingCost = parseNumber(dom.batchPackaging.value) || 0;
+                const profitPercent = parseNumber(dom.profitPercent.value);
+                if (isNaN(profitPercent) || profitPercent < 0) {
+                    showToast('درصد سود معتبر وارد کنید.', 'error');
+                    return;
+                }
+                state.profitPercent = profitPercent;
+
+                const totalPackaging = packagingCost * batchCount;
+                const totalProductionCost = totalMaterialCost + totalPackaging;
+                const costPerUnit = totalProductionCost / batchCount;
+                const profitPerUnit = costPerUnit * (profitPercent / 100);
+                const sellingPricePerUnit = costPerUnit + profitPerUnit;
+                const totalProfit = profitPerUnit * batchCount;
+
+                const result = {
+                    totalMaterialCost,
+                    details,
+                    totalPackaging,
+                    totalProductionCost,
+                    costPerUnit,
+                    profitPercent,
+                    profitPerUnit,
+                    sellingPricePerUnit,
+                    totalProfit,
+                    batchCount,
+                    packagingCost,
+                };
+
+                state.result = result;
+                renderResult(result);
+                showToast('محاسبه انجام شد.', 'success');
+                saveState();
+                switchTab('result');
+            }
+
+            function renderResult(result) {
+                const container = dom.resultContainer;
+                if (!result) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <i class="fas fa-calculator"></i>
+                            <p>مواد اولیه را اضافه کنید و دکمه محاسبه را بزنید.</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                const colors = ['#7C4DFF', '#448AFF', '#AA6EFF', '#82B1FF', '#B388FF', '#64B5F6'];
+                const chartData = result.details.map((d, idx) => ({
+                    label: d.name,
+                    value: d.cost,
+                    color: colors[idx % colors.length],
+                }));
+
+                let chartSvg = '';
+                if (result.totalMaterialCost > 0) {
+                    const total = result.totalMaterialCost;
+                    let cumulative = 0;
+                    const segments = chartData.map((d) => {
+                        const percent = d.value / total;
+                        const start = cumulative;
+                        cumulative += percent;
+                        const end = cumulative;
+                        const startAngle = start * 2 * Math.PI;
+                        const endAngle = end * 2 * Math.PI;
+                        const x1 = 100 + 80 * Math.cos(startAngle);
+                        const y1 = 100 + 80 * Math.sin(startAngle);
+                        const x2 = 100 + 80 * Math.cos(endAngle);
+                        const y2 = 100 + 80 * Math.sin(endAngle);
+                        const largeArc = percent > 0.5 ? 1 : 0;
+                        return `
+                            <path d="M 100 100 L ${x1} ${y1} A 80 80 0 ${largeArc} 1 ${x2} ${y2} Z"
+                                  fill="${d.color}" stroke="var(--md-sys-color-surface)" stroke-width="2" />
+                        `;
+                    }).join('');
+                    chartSvg = `
+                        <div class="chart-container">
+                            <svg viewBox="0 0 200 200" width="200" height="200">
+                                ${segments}
+                                <circle cx="100" cy="100" r="50" fill="var(--md-sys-color-surface-container)" />
+                                <text x="100" y="105" text-anchor="middle" font-size="16" font-weight="700" fill="var(--md-sys-color-on-surface)">
+                                    ${Math.round((result.totalMaterialCost / result.totalProductionCost) * 100)}%
+                                </text>
+                            </svg>
+                        </div>
+                    `;
+                }
+
+                const detailRows = result.details.map((d) => `
+                    <div class="detail-row">
+                        <span class="label">${d.name}</span>
+                        <span class="value">${formatNumber(d.cost)} تومان</span>
+                    </div>
+                `).join('');
+
+                container.innerHTML = `
+                    <div class="result-summary">
+                        <div class="result-card highlight">
+                            <div class="label">قیمت فروش هر عدد</div>
+                            <div class="value primary">${formatNumber(result.sellingPricePerUnit)} تومان</div>
+                        </div>
+                        <div class="result-card">
+                            <div class="label">سود هر عدد</div>
+                            <div class="value success">${formatNumber(result.profitPerUnit)} تومان</div>
+                        </div>
+                        <div class="result-card">
+                            <div class="label">هزینه تمام‌شده هر عدد</div>
+                            <div class="value">${formatNumber(result.costPerUnit)} تومان</div>
+                        </div>
+                        <div class="result-card">
+                            <div class="label">سود کل</div>
+                            <div class="value success">${formatNumber(result.totalProfit)} تومان</div>
+                        </div>
+                    </div>
+
+                    ${chartSvg}
+
+                    <div class="result-details">
+                        <div class="detail-row"><span class="label">مجموع هزینه مواد اولیه</span><span class="value">${formatNumber(result.totalMaterialCost)} تومان</span></div>
+                        <div class="detail-row"><span class="label">مجموع هزینه بسته‌بندی</span><span class="value">${formatNumber(result.totalPackaging)} تومان</span></div>
+                        <div class="detail-row"><span class="label">مجموع هزینه تولید</span><span class="value">${formatNumber(result.totalProductionCost)} تومان</span></div>
+                        <div class="detail-row"><span class="label">تعداد خروجی</span><span class="value">${formatNumber(result.batchCount)} عدد</span></div>
+                        <div class="detail-row"><span class="label">درصد سود</span><span class="value">${result.profitPercent}%</span></div>
+                    </div>
+
+                    <div class="accordion" style="margin-top:16px;">
+                        <div class="accordion-header" id="accordion-details">
+                            <span>جزئیات هزینه هر ماده</span>
+                            <i class="fas fa-chevron-down"></i>
+                        </div>
+                        <div class="accordion-body" id="accordion-body">
+                            ${detailRows}
+                        </div>
+                    </div>
+                `;
+
+                const header = document.getElementById('accordion-details');
+                const body = document.getElementById('accordion-body');
+                header.addEventListener('click', () => {
+                    header.classList.toggle('open');
+                    body.classList.toggle('open');
+                });
+                header.classList.add('open');
+                body.classList.add('open');
+            }
+
+            // ---------- State ----------
+            function saveState() {
+                try {
+                    const data = {
+                        ingredients: state.ingredients,
+                        groups: state.groups,
+                        batchCount: state.batchCount,
+                        packagingCost: state.packagingCost,
+                        profitPercent: state.profitPercent,
+                        result: state.result,
+                    };
+                    localStorage.setItem('cake_calc_state', JSON.stringify(data));
+                } catch (e) {}
+            }
+
+            function loadState() {
+                try {
+                    const raw = localStorage.getItem('cake_calc_state');
+                    if (!raw) return;
+                    const data = JSON.parse(raw);
+                    state.ingredients = data.ingredients || [];
+                    state.groups = data.groups || [];
+                    state.batchCount = data.batchCount || 1;
+                    state.packagingCost = data.packagingCost || 0;
+                    state.profitPercent = data.profitPercent || 30;
+                    state.result = data.result || null;
+                    dom.batchCount.value = state.batchCount;
+                    dom.batchPackaging.value = state.packagingCost;
+                    dom.profitPercent.value = state.profitPercent;
+                    renderIngredients();
+                    renderGroups();
+                    if (state.result) renderResult(state.result);
+                } catch (e) {}
+            }
+
+            // ---------- Number Input formatting ----------
+            function setupNumberInput(input) {
+                input.addEventListener('input', function(e) {
+                    let val = this.value.replace(/[^0-9,.]/g, '');
+                    const dotParts = val.split('.');
+                    if (dotParts.length > 2) val = dotParts[0] + '.' + dotParts.slice(1).join('');
+                    this.value = val;
+                    this.dataset.raw = val;
+                });
+                input.addEventListener('blur', function() {
+                    let val = parseNumber(this.value);
+                    if (!isNaN(val) && val >= 0) this.value = formatNumber(val);
+                    else this.value = '';
+                });
+                input.addEventListener('focus', function() {
+                    let val = parseNumber(this.value);
+                    if (!isNaN(val)) this.value = val.toString();
+                    else this.value = '';
+                    this.select();
+                });
+            }
+
+            // ---------- Toggle ingredient fields ----------
+            function toggleIngredientFields() {
+                const type = dom.ingType.value;
+                document.getElementById('weight-fields').classList.toggle('hidden', type !== 'weight');
+                document.getElementById('weight-price-fields').classList.toggle('hidden', type !== 'weight');
+                document.getElementById('weight-used-fields').classList.toggle('hidden', type !== 'weight');
+                document.getElementById('count-price-fields').classList.toggle('hidden', type !== 'count');
+                document.getElementById('count-used-fields').classList.toggle('hidden', type !== 'count');
+            }
+
+            // ---------- Ripple ----------
+            function addRipple(e) {
+                const btn = e.currentTarget;
+                const rect = btn.getBoundingClientRect();
+                const size = Math.max(rect.width, rect.height);
+                const x = e.clientX - rect.left - size / 2;
+                const y = e.clientY - rect.top - size / 2;
+                const ripple = document.createElement('span');
+                ripple.className = 'ripple';
+                ripple.style.width = ripple.style.height = size + 'px';
+                ripple.style.left = x + 'px';
+                ripple.style.top = y + 'px';
+                btn.appendChild(ripple);
+                setTimeout(() => ripple.remove(), 500);
+            }
+
+            // ---------- Init ----------
+            function init() {
+                setTheme(detectTheme());
+                loadState();
+
+                const savedTab = localStorage.getItem('cake_calc_tab');
+                if (savedTab && dom.tabs[savedTab]) switchTab(savedTab);
+                else switchTab('ingredients');
+
+                dom.themeToggle.addEventListener('click', toggleTheme);
+                dom.navItems.forEach(btn => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
+                dom.ingType.addEventListener('change', toggleIngredientFields);
+                toggleIngredientFields();
+                dom.ingredientForm.addEventListener('submit', addIngredient);
+                dom.calculateBtn.addEventListener('click', calculate);
+
+                // ذخیره گروه از طریق دکمه‌های مختلف
+                dom.saveGroupBtn.addEventListener('click', () => {
+                    const name = prompt('نام گروه را وارد کنید:');
+                    if (name !== null) saveGroup(name);
+                });
+                dom.saveGroupInline.addEventListener('click', () => {
+                    const name = dom.groupNameInput.value.trim();
+                    if (saveGroup(name)) dom.groupNameInput.value = '';
+                });
+                dom.clearAllGroupsBtn.addEventListener('click', clearAllGroups);
+
+                // تنظیم ورودی‌های عددی
+                [
+                    dom.ingTotalWeight, dom.ingTotalPrice, dom.ingUsedAmount,
+                    dom.ingUnitPrice, dom.ingCountUsed, dom.batchCount,
+                    dom.batchPackaging, dom.profitPercent
+                ].forEach(inp => setupNumberInput(inp));
+
+                // تغییرات خودکار در صورت وجود نتیجه
+                dom.batchCount.addEventListener('input', debounce(() => {
+                    state.batchCount = parseNumber(dom.batchCount.value) || 1;
+                    saveState();
+                    if (state.result) calculate();
+                }, 300));
+                dom.batchPackaging.addEventListener('input', debounce(() => {
+                    state.packagingCost = parseNumber(dom.batchPackaging.value) || 0;
+                    saveState();
+                    if (state.result) calculate();
+                }, 300));
+                dom.profitPercent.addEventListener('input', debounce(() => {
+                    const p = parseNumber(dom.profitPercent.value);
+                    if (!isNaN(p) && p >= 0) {
+                        state.profitPercent = p;
+                        saveState();
+                        if (state.result) calculate();
+                    }
+                }, 300));
+
+                document.querySelectorAll('.btn-primary, .btn-icon').forEach(el => {
+                    el.addEventListener('mousedown', addRipple);
+                });
+
+                // Auto calculate on ingredient change
+                const autoCalc = debounce(() => {
+                    if (state.ingredients.length > 0 && state.result) calculate();
+                }, 400);
+                const origRender = renderIngredients;
+                renderIngredients = function() {
+                    origRender();
+                    if (state.result && state.ingredients.length > 0) autoCalc();
+                    else if (state.ingredients.length === 0) {
+                        state.result = null;
+                        renderResult(null);
+                        saveState();
+                    }
+                };
+                renderIngredients();
+
+                // Adjust nav indicator on resize
+                let resizeTimer;
+                window.addEventListener('resize', () => {
+                    clearTimeout(resizeTimer);
+                    resizeTimer = setTimeout(() => {
+                        const active = document.querySelector(`.nav-item[data-tab="${state.currentTab}"]`);
+                        if (active) {
+                            const rect = active.getBoundingClientRect();
+                            const navRect = dom.navIndicator.parentElement.getBoundingClientRect();
+                            dom.navIndicator.style.left = (rect.left - navRect.left) + 'px';
+                            dom.navIndicator.style.width = rect.width + 'px';
+                        }
+                    }, 100);
+                });
+
+                setTimeout(() => {
+                    const active = document.querySelector(`.nav-item[data-tab="${state.currentTab}"]`);
+                    if (active) {
+                        const rect = active.getBoundingClientRect();
+                        const navRect = dom.navIndicator.parentElement.getBoundingClientRect();
+                        dom.navIndicator.style.left = (rect.left - navRect.left) + 'px';
+                        dom.navIndicator.style.width = rect.width + 'px';
+                    }
+                }, 50);
+
+                console.log('🍰 Cake Calculator with variable profit & inline group save');
+            }
+
+            init();
+
+        })();
+    </script>
+
+</body>
+</html>
