@@ -1,0 +1,1518 @@
+name: SPA-to-Native-Android-Builder
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build-native-apk:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Create Full Android Project Structure
+        run: |
+          # ایجاد پوشه‌ها
+          mkdir -p app/src/main/java/com/example/spa2native/ui/theme
+          mkdir -p app/src/main/java/com/example/spa2native/ui/screens
+          mkdir -p app/src/main/java/com/example/spa2native/ui/components
+          mkdir -p app/src/main/java/com/example/spa2native/data
+          mkdir -p app/src/main/res/values
+          mkdir -p gradle/wrapper
+
+          # ---------- Root Gradle Files ----------
+          cat << 'EOF' > settings.gradle.kts
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+          dependencyResolutionManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          rootProject.name = "SpaToNative"
+          include(":app")
+          EOF
+
+          cat << 'EOF' > build.gradle.kts
+          plugins {
+              id("com.android.application") version "8.2.0" apply false
+              id("org.jetbrains.kotlin.android") version "1.9.20" apply false
+              id("org.jetbrains.kotlin.plugin.serialization") version "1.9.20" apply false
+          }
+          EOF
+
+          # ---------- App Module Gradle File ----------
+          cat << 'EOF' > app/build.gradle.kts
+          plugins {
+              id("com.android.application")
+              id("org.jetbrains.kotlin.android")
+              id("org.jetbrains.kotlin.plugin.serialization")
+          }
+
+          android {
+              namespace = "com.example.spa2native"
+              compileSdk = 34
+
+              defaultConfig {
+                  applicationId = "com.example.spa2native"
+                  minSdk = 24
+                  targetSdk = 34
+                  versionCode = 1
+                  versionName = "1.0"
+              }
+
+              buildTypes {
+                  release {
+                      isMinifyEnabled = false
+                      proguardFiles(
+                          getDefaultProguardFile("proguard-android-optimize.txt"),
+                          "proguard-rules.pro"
+                      )
+                  }
+              }
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_17
+                  targetCompatibility = JavaVersion.VERSION_17
+              }
+              kotlinOptions {
+                  jvmTarget = "17"
+              }
+              buildFeatures {
+                  compose = true
+              }
+              composeOptions {
+                  kotlinCompilerExtensionVersion = "1.5.4"
+              }
+          }
+
+          dependencies {
+              implementation("androidx.core:core-ktx:1.12.0")
+              implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
+              implementation("androidx.activity:activity-compose:1.8.2")
+              implementation(platform("androidx.compose:compose-bom:2024.02.00"))
+              implementation("androidx.compose.ui:ui")
+              implementation("androidx.compose.ui:ui-graphics")
+              implementation("androidx.compose.ui:ui-tooling-preview")
+              implementation("androidx.compose.material3:material3")
+              implementation("androidx.navigation:navigation-compose:2.7.6")
+              implementation("androidx.compose.material3:material3-window-size-class")
+              
+              // ViewModel
+              implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
+              
+              // DataStore
+              implementation("androidx.datastore:datastore-preferences:1.0.0")
+              
+              // Kotlin Serialization
+              implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
+          }
+          EOF
+
+          # ---------- AndroidManifest.xml ----------
+          cat << 'EOF' > app/src/main/AndroidManifest.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <application
+                  android:allowBackup="true"
+                  android:icon="@mipmap/ic_launcher"
+                  android:label="SPA Native"
+                  android:theme="@style/Theme.SpaNative">
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true"
+                      android:windowSoftInputMode="adjustResize">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
+
+          # ---------- Theme (Material Design 3 Expressive with Monet) ----------
+          cat << 'EOF' > app/src/main/java/com/example/spa2native/ui/theme/Theme.kt
+          package com.example.spa2native.ui.theme
+
+          import android.app.Activity
+          import android.os.Build
+          import androidx.compose.foundation.isSystemInDarkTheme
+          import androidx.compose.material3.MaterialTheme
+          import androidx.compose.material3.darkColorScheme
+          import androidx.compose.material3.dynamicDarkColorScheme
+          import androidx.compose.material3.dynamicLightColorScheme
+          import androidx.compose.material3.lightColorScheme
+          import androidx.compose.runtime.Composable
+          import androidx.compose.runtime.SideEffect
+          import androidx.compose.ui.graphics.Color
+          import androidx.compose.ui.platform.LocalContext
+          import androidx.compose.ui.platform.LocalView
+          import androidx.core.view.WindowCompat
+
+          private val DarkColorScheme = darkColorScheme(
+              primary = Color(0xFFD0BCFF),
+              onPrimary = Color(0xFF381E72),
+              primaryContainer = Color(0xFF4F378B),
+              secondary = Color(0xFFCCC2DC),
+              tertiary = Color(0xFFEFB8C8),
+              background = Color(0xFF1C1B1F),
+              surface = Color(0xFF252429),
+              onBackground = Color(0xFFE6E1E5)
+          )
+
+          private val LightColorScheme = lightColorScheme(
+              primary = Color(0xFF6750A4),
+              onPrimary = Color(0xFFFFFFFF),
+              primaryContainer = Color(0xFFEADDFF),
+              secondary = Color(0xFF625B71),
+              tertiary = Color(0xFF7D5260),
+              background = Color(0xFFFFFBFE),
+              surface = Color(0xFFFFFBFE),
+              onBackground = Color(0xFF1C1B1F)
+          )
+
+          @Composable
+          fun SpaNativeTheme(
+              darkTheme: Boolean = isSystemInDarkTheme(),
+              dynamicColor: Boolean = true,
+              content: @Composable () -> Unit
+          ) {
+              val colorScheme = when {
+                  dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
+                      val context = LocalContext.current
+                      if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+                  }
+                  darkTheme -> DarkColorScheme
+                  else -> LightColorScheme
+              }
+
+              val view = LocalView.current
+              if (!view.isInEditMode) {
+                  SideEffect {
+                      val window = (view.context as Activity).window
+                      WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+                  }
+              }
+
+              MaterialTheme(
+                  colorScheme = colorScheme,
+                  typography = Typography,
+                  content = content
+              )
+          }
+          EOF
+
+          # ---------- MainActivity ----------
+          cat << 'EOF' > app/src/main/java/com/example/spa2native/MainActivity.kt
+          package com.example.spa2native
+
+          import android.os.Bundle
+          import androidx.activity.ComponentActivity
+          import androidx.activity.compose.setContent
+          import androidx.compose.foundation.layout.fillMaxSize
+          import androidx.compose.material3.Surface
+          import androidx.compose.ui.Modifier
+          import com.example.spa2native.ui.screens.SpaApp
+          import com.example.spa2native.ui.theme.SpaNativeTheme
+
+          class MainActivity : ComponentActivity() {
+              override fun onCreate(savedInstanceState: Bundle?) {
+                  super.onCreate(savedInstanceState)
+                  setContent {
+                      SpaNativeTheme {
+                          Surface(modifier = Modifier.fillMaxSize()) {
+                              SpaApp()
+                          }
+                      }
+                  }
+              }
+          }
+          EOF
+
+          # ---------- Data Models ----------
+          cat << 'EOF' > app/src/main/java/com/example/spa2native/data/Models.kt
+          package com.example.spa2native.data
+
+          import kotlinx.serialization.Serializable
+
+          @Serializable
+          data class Ingredient(
+              val id: String,
+              val name: String,
+              val type: IngredientType,
+              var totalWeight: Double = 0.0,
+              var totalPrice: Double = 0.0,
+              var usedAmount: Double = 0.0,
+              var unitPrice: Double = 0.0,
+              var countUsed: Double = 0.0
+          )
+
+          @Serializable
+          enum class IngredientType {
+              WEIGHT, COUNT
+          }
+
+          @Serializable
+          data class Group(
+              val id: String,
+              val name: String,
+              val ingredients: List<Ingredient>
+          )
+
+          @Serializable
+          data class CalculationResult(
+              val totalMaterialCost: Double,
+              val totalPackaging: Double,
+              val totalProductionCost: Double,
+              val costPerUnit: Double,
+              val profitPercent: Double,
+              val profitPerUnit: Double,
+              val sellingPricePerUnit: Double,
+              val totalProfit: Double,
+              val batchCount: Int,
+              val packagingCost: Double,
+              val details: List<IngredientCost>
+          )
+
+          @Serializable
+          data class IngredientCost(
+              val ingredient: Ingredient,
+              val cost: Double
+          )
+
+          @Serializable
+          data class AppSettings(
+              val batchCount: Int = 1,
+              val packagingCost: Double = 0.0,
+              val profitPercent: Double = 30.0
+          )
+          EOF
+
+          # ---------- ViewModel ----------
+          cat << 'EOF' > app/src/main/java/com/example/spa2native/ui/SpaViewModel.kt
+          package com.example.spa2native.ui
+
+          import androidx.compose.runtime.getValue
+          import androidx.compose.runtime.mutableStateOf
+          import androidx.compose.runtime.setValue
+          import androidx.lifecycle.ViewModel
+          import androidx.lifecycle.viewModelScope
+          import com.example.spa2native.data.*
+          import kotlinx.coroutines.flow.MutableStateFlow
+          import kotlinx.coroutines.flow.StateFlow
+          import kotlinx.coroutines.flow.asStateFlow
+          import kotlinx.coroutines.launch
+
+          class SpaViewModel : ViewModel() {
+              // State
+              private val _ingredients = MutableStateFlow<List<Ingredient>>(emptyList())
+              val ingredients: StateFlow<List<Ingredient>> = _ingredients.asStateFlow()
+
+              private val _groups = MutableStateFlow<List<Group>>(emptyList())
+              val groups: StateFlow<List<Group>> = _groups.asStateFlow()
+
+              private val _settings = MutableStateFlow(AppSettings())
+              val settings: StateFlow<AppSettings> = _settings.asStateFlow()
+
+              private val _result = MutableStateFlow<CalculationResult?>(null)
+              val result: StateFlow<CalculationResult?> = _result.asStateFlow()
+
+              private val _selectedTab = MutableStateFlow(0)
+              val selectedTab: StateFlow<Int> = _selectedTab.asStateFlow()
+
+              // Bottom sheet states
+              var showAddIngredientSheet by mutableStateOf(false)
+              var showCalculateSheet by mutableStateOf(false)
+              var showAddGroupSheet by mutableStateOf(false)
+
+              // Editing state
+              var editingIngredientId by mutableStateOf<String?>(null)
+
+              // Actions
+              fun addIngredient(ingredient: Ingredient) {
+                  val current = _ingredients.value.toMutableList()
+                  current.add(ingredient)
+                  _ingredients.value = current
+              }
+
+              fun updateIngredient(ingredient: Ingredient) {
+                  val current = _ingredients.value.toMutableList()
+                  val index = current.indexOfFirst { it.id == ingredient.id }
+                  if (index != -1) {
+                      current[index] = ingredient
+                      _ingredients.value = current
+                  }
+              }
+
+              fun removeIngredient(id: String) {
+                  _ingredients.value = _ingredients.value.filter { it.id != id }
+              }
+
+              fun saveGroup(name: String) {
+                  if (_ingredients.value.isEmpty()) return
+                  val group = Group(
+                      id = System.currentTimeMillis().toString(),
+                      name = name,
+                      ingredients = _ingredients.value
+                  )
+                  val current = _groups.value.toMutableList()
+                  current.add(group)
+                  _groups.value = current
+              }
+
+              fun loadGroup(groupId: String) {
+                  val group = _groups.value.find { it.id == groupId }
+                  group?.let {
+                      _ingredients.value = it.ingredients
+                  }
+              }
+
+              fun deleteGroup(groupId: String) {
+                  _groups.value = _groups.value.filter { it.id != groupId }
+              }
+
+              fun updateSettings(batchCount: Int, packagingCost: Double, profitPercent: Double) {
+                  _settings.value = AppSettings(batchCount, packagingCost, profitPercent)
+              }
+
+              fun calculate() {
+                  val ingredients = _ingredients.value
+                  if (ingredients.isEmpty()) return
+
+                  val settings = _settings.value
+                  var totalMaterialCost = 0.0
+                  val details = ingredients.map { ing ->
+                      val cost = when (ing.type) {
+                          IngredientType.WEIGHT -> if (ing.totalWeight > 0) (ing.totalPrice / ing.totalWeight) * ing.usedAmount else 0.0
+                          IngredientType.COUNT -> ing.unitPrice * ing.countUsed
+                      }
+                      totalMaterialCost += cost
+                      IngredientCost(ing, cost)
+                  }
+
+                  val totalPackaging = settings.packagingCost * settings.batchCount
+                  val totalProductionCost = totalMaterialCost + totalPackaging
+                  val costPerUnit = totalProductionCost / settings.batchCount
+                  val profitPerUnit = costPerUnit * (settings.profitPercent / 100)
+                  val sellingPricePerUnit = costPerUnit + profitPerUnit
+                  val totalProfit = profitPerUnit * settings.batchCount
+
+                  _result.value = CalculationResult(
+                      totalMaterialCost = totalMaterialCost,
+                      totalPackaging = totalPackaging,
+                      totalProductionCost = totalProductionCost,
+                      costPerUnit = costPerUnit,
+                      profitPercent = settings.profitPercent,
+                      profitPerUnit = profitPerUnit,
+                      sellingPricePerUnit = sellingPricePerUnit,
+                      totalProfit = totalProfit,
+                      batchCount = settings.batchCount,
+                      packagingCost = settings.packagingCost,
+                      details = details
+                  )
+              }
+
+              fun selectTab(index: Int) {
+                  _selectedTab.value = index
+              }
+          }
+          EOF
+
+          # ---------- Composable Screens ----------
+          cat << 'EOF' > app/src/main/java/com/example/spa2native/ui/screens/SpaApp.kt
+          package com.example.spa2native.ui.screens
+
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.material3.*
+          import androidx.compose.runtime.*
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.unit.dp
+          import androidx.lifecycle.viewmodel.compose.viewModel
+          import androidx.navigation.compose.NavHost
+          import androidx.navigation.compose.composable
+          import androidx.navigation.compose.rememberNavController
+          import com.example.spa2native.ui.SpaViewModel
+          import com.example.spa2native.ui.components.*
+
+          @OptIn(ExperimentalMaterial3Api::class)
+          @Composable
+          fun SpaApp(
+              viewModel: SpaViewModel = viewModel()
+          ) {
+              val ingredients by viewModel.ingredients.collectAsState()
+              val groups by viewModel.groups.collectAsState()
+              val settings by viewModel.settings.collectAsState()
+              val result by viewModel.result.collectAsState()
+              val selectedTab by viewModel.selectedTab.collectAsState()
+
+              val navController = rememberNavController()
+
+              // Bottom Sheets
+              if (viewModel.showAddIngredientSheet) {
+                  ModalBottomSheet(
+                      onDismissRequest = { viewModel.showAddIngredientSheet = false },
+                      shape = MaterialTheme.shapes.extraLarge
+                  ) {
+                      AddIngredientSheetContent(
+                          onAdd = { ingredient ->
+                              viewModel.addIngredient(ingredient)
+                              viewModel.showAddIngredientSheet = false
+                          },
+                          onDismiss = { viewModel.showAddIngredientSheet = false }
+                      )
+                  }
+              }
+
+              if (viewModel.showCalculateSheet) {
+                  ModalBottomSheet(
+                      onDismissRequest = { viewModel.showCalculateSheet = false },
+                      shape = MaterialTheme.shapes.extraLarge
+                  ) {
+                      CalculateSheetContent(
+                          settings = settings,
+                          onCalculate = { batchCount, packagingCost, profitPercent ->
+                              viewModel.updateSettings(batchCount, packagingCost, profitPercent)
+                              viewModel.calculate()
+                              viewModel.showCalculateSheet = false
+                              viewModel.selectTab(2) // Switch to result tab
+                          },
+                          onDismiss = { viewModel.showCalculateSheet = false }
+                      )
+                  }
+              }
+
+              if (viewModel.showAddGroupSheet) {
+                  ModalBottomSheet(
+                      onDismissRequest = { viewModel.showAddGroupSheet = false },
+                      shape = MaterialTheme.shapes.extraLarge
+                  ) {
+                      AddGroupSheetContent(
+                          onAdd = { name ->
+                              viewModel.saveGroup(name)
+                              viewModel.showAddGroupSheet = false
+                          },
+                          onDismiss = { viewModel.showAddGroupSheet = false }
+                      )
+                  }
+              }
+
+              Scaffold(
+                  containerColor = MaterialTheme.colorScheme.background,
+                  topBar = {
+                      SpaTopBar(
+                          title = when (selectedTab) {
+                              0 -> "مواد اولیه"
+                              1 -> "گروه‌ها"
+                              else -> "نتیجه"
+                          }
+                      )
+                  },
+                  bottomBar = {
+                      SpaNavigationBar(
+                          selectedTab = selectedTab,
+                          onTabSelected = { viewModel.selectTab(it) },
+                          ingredientCount = ingredients.size,
+                          groupCount = groups.size,
+                          onAddIngredient = { viewModel.showAddIngredientSheet = true },
+                          onCalculate = { viewModel.showCalculateSheet = true }
+                      )
+                  }
+              ) { paddingValues ->
+                  Box(modifier = Modifier.padding(paddingValues)) {
+                      when (selectedTab) {
+                          0 -> IngredientsScreen(
+                              ingredients = ingredients,
+                              groups = groups,
+                              settings = settings,
+                              onRemoveIngredient = { viewModel.removeIngredient(it) },
+                              onSaveGroup = { name -> viewModel.saveGroup(name) },
+                              onLoadGroup = { groupId -> viewModel.loadGroup(groupId) },
+                              onEditIngredient = { /* TODO: Implement edit */ },
+                              onShowAddGroupSheet = { viewModel.showAddGroupSheet = true }
+                          )
+                          1 -> GroupsScreen(
+                              groups = groups,
+                              onLoadGroup = { viewModel.loadGroup(it) },
+                              onDeleteGroup = { viewModel.deleteGroup(it) },
+                              onShowAddGroupSheet = { viewModel.showAddGroupSheet = true }
+                          )
+                          2 -> ResultScreen(
+                              result = result,
+                              ingredients = ingredients
+                          )
+                      }
+                  }
+              }
+          }
+          EOF
+
+          # ---------- Top Bar ----------
+          cat << 'EOF' > app/src/main/java/com/example/spa2native/ui/components/TopBar.kt
+          package com.example.spa2native.ui.components
+
+          import androidx.compose.foundation.layout.Row
+          import androidx.compose.foundation.layout.Spacer
+          import androidx.compose.foundation.layout.fillMaxWidth
+          import androidx.compose.foundation.layout.padding
+          import androidx.compose.foundation.layout.size
+          import androidx.compose.material.icons.Icons
+          import androidx.compose.material.icons.filled.Menu
+          import androidx.compose.material3.CenterAlignedTopAppBar
+          import androidx.compose.material3.ExperimentalMaterial3Api
+          import androidx.compose.material3.Icon
+          import androidx.compose.material3.IconButton
+          import androidx.compose.material3.MaterialTheme
+          import androidx.compose.material3.Text
+          import androidx.compose.material3.TopAppBarDefaults
+          import androidx.compose.runtime.Composable
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.unit.dp
+
+          @OptIn(ExperimentalMaterial3Api::class)
+          @Composable
+          fun SpaTopBar(
+              title: String,
+              modifier: Modifier = Modifier
+          ) {
+              CenterAlignedTopAppBar(
+                  title = {
+                      Text(
+                          text = title,
+                          style = MaterialTheme.typography.titleLarge
+                      )
+                  },
+                  colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                      containerColor = MaterialTheme.colorScheme.background
+                  ),
+                  modifier = modifier
+              )
+          }
+          EOF
+
+          # ---------- Navigation Bar (Floating) ----------
+          cat << 'EOF' > app/src/main/java/com/example/spa2native/ui/components/NavigationBar.kt
+          package com.example.spa2native.ui.components
+
+          import androidx.compose.foundation.layout.Arrangement
+          import androidx.compose.foundation.layout.Row
+          import androidx.compose.foundation.layout.Spacer
+          import androidx.compose.foundation.layout.fillMaxWidth
+          import androidx.compose.foundation.layout.padding
+          import androidx.compose.foundation.layout.size
+          import androidx.compose.foundation.layout.width
+          import androidx.compose.foundation.shape.RoundedCornerShape
+          import androidx.compose.material.icons.Icons
+          import androidx.compose.material.icons.filled.Add
+          import androidx.compose.material.icons.filled.Calculate
+          import androidx.compose.material.icons.filled.Folder
+          import androidx.compose.material.icons.filled.List
+          import androidx.compose.material.icons.filled.PieChart
+          import androidx.compose.material3.FloatingActionButton
+          import androidx.compose.material3.Icon
+          import androidx.compose.material3.MaterialTheme
+          import androidx.compose.material3.NavigationBar
+          import androidx.compose.material3.NavigationBarItem
+          import androidx.compose.material3.Surface
+          import androidx.compose.material3.Text
+          import androidx.compose.runtime.Composable
+          import androidx.compose.ui.Alignment
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.draw.clip
+          import androidx.compose.ui.graphics.Color
+          import androidx.compose.ui.unit.dp
+
+          @Composable
+          fun SpaNavigationBar(
+              selectedTab: Int,
+              onTabSelected: (Int) -> Unit,
+              ingredientCount: Int,
+              groupCount: Int,
+              onAddIngredient: () -> Unit,
+              onCalculate: () -> Unit,
+              modifier: Modifier = Modifier
+          ) {
+              Surface(
+                  modifier = modifier
+                      .fillMaxWidth()
+                      .padding(horizontal = 16.dp, vertical = 8.dp)
+                      .clip(RoundedCornerShape(28.dp)),
+                  color = MaterialTheme.colorScheme.surface,
+                  shadowElevation = 8.dp,
+                  tonalElevation = 3.dp
+              ) {
+                  Row(
+                      modifier = Modifier
+                          .fillMaxWidth()
+                          .padding(horizontal = 8.dp, vertical = 4.dp),
+                      horizontalArrangement = Arrangement.SpaceEvenly,
+                      verticalAlignment = Alignment.CenterVertically
+                  ) {
+                      // Add Ingredient FAB (Right side)
+                      FloatingActionButton(
+                          onClick = onAddIngredient,
+                          containerColor = MaterialTheme.colorScheme.primary,
+                          contentColor = MaterialTheme.colorScheme.onPrimary,
+                          modifier = Modifier.size(48.dp)
+                      ) {
+                          Icon(Icons.Default.Add, contentDescription = "Add Ingredient")
+                      }
+
+                      Spacer(modifier = Modifier.width(8.dp))
+
+                      // Navigation Items
+                      NavigationBarItem(
+                          selected = selectedTab == 0,
+                          onClick = { onTabSelected(0) },
+                          icon = { Icon(Icons.Default.List, contentDescription = "Ingredients") },
+                          label = null,
+                          modifier = Modifier.weight(1f)
+                      )
+
+                      NavigationBarItem(
+                          selected = selectedTab == 1,
+                          onClick = { onTabSelected(1) },
+                          icon = { Icon(Icons.Default.Folder, contentDescription = "Groups") },
+                          label = null,
+                          modifier = Modifier.weight(1f)
+                      )
+
+                      NavigationBarItem(
+                          selected = selectedTab == 2,
+                          onClick = { onTabSelected(2) },
+                          icon = { Icon(Icons.Default.PieChart, contentDescription = "Result") },
+                          label = null,
+                          modifier = Modifier.weight(1f)
+                      )
+
+                      Spacer(modifier = Modifier.width(8.dp))
+
+                      // Calculate FAB (Left side)
+                      FloatingActionButton(
+                          onClick = onCalculate,
+                          containerColor = MaterialTheme.colorScheme.primary,
+                          contentColor = MaterialTheme.colorScheme.onPrimary,
+                          modifier = Modifier.size(48.dp)
+                      ) {
+                          Icon(Icons.Default.Calculate, contentDescription = "Calculate")
+                      }
+                  }
+              }
+          }
+          EOF
+
+          # ---------- Add Ingredient Bottom Sheet ----------
+          cat << 'EOF' > app/src/main/java/com/example/spa2native/ui/components/AddIngredientSheet.kt
+          package com.example.spa2native.ui.components
+
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.foundation.text.KeyboardOptions
+          import androidx.compose.material3.*
+          import androidx.compose.runtime.*
+          import androidx.compose.ui.Alignment
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.text.input.KeyboardType
+          import androidx.compose.ui.unit.dp
+          import com.example.spa2native.data.Ingredient
+          import com.example.spa2native.data.IngredientType
+          import kotlinx.coroutines.delay
+
+          @OptIn(ExperimentalMaterial3Api::class)
+          @Composable
+          fun AddIngredientSheetContent(
+              onAdd: (Ingredient) -> Unit,
+              onDismiss: () -> Unit,
+              modifier: Modifier = Modifier
+          ) {
+              var name by remember { mutableStateOf("") }
+              var selectedType by remember { mutableStateOf(IngredientType.WEIGHT) }
+              
+              // Weight fields
+              var totalWeight by remember { mutableStateOf("") }
+              var totalPrice by remember { mutableStateOf("") }
+              var usedAmount by remember { mutableStateOf("") }
+              
+              // Count fields
+              var unitPrice by remember { mutableStateOf("") }
+              var countUsed by remember { mutableStateOf("") }
+
+              Column(
+                  modifier = modifier
+                      .fillMaxWidth()
+                      .padding(24.dp),
+                  horizontalAlignment = Alignment.CenterHorizontally
+              ) {
+                  Text(
+                      text = "افزودن ماده جدید",
+                      style = MaterialTheme.typography.headlineSmall,
+                      modifier = Modifier.padding(bottom = 16.dp)
+                  )
+
+                  // Name field
+                  OutlinedTextField(
+                      value = name,
+                      onValueChange = { name = it },
+                      label = { Text("نام ماده") },
+                      modifier = Modifier.fillMaxWidth(),
+                      singleLine = true
+                  )
+
+                  Spacer(modifier = Modifier.height(16.dp))
+
+                  // Connected Button Group for type selection
+                  Text(
+                      text = "نوع مقدار ورودی",
+                      style = MaterialTheme.typography.labelMedium,
+                      modifier = Modifier.fillMaxWidth()
+                  )
+                  
+                  Row(
+                      modifier = Modifier.fillMaxWidth(),
+                      horizontalArrangement = Arrangement.spacedBy(4.dp)
+                  ) {
+                      FilterChip(
+                          selected = selectedType == IngredientType.WEIGHT,
+                          onClick = { selectedType = IngredientType.WEIGHT },
+                          label = { Text("وزن (گرم)") },
+                          modifier = Modifier.weight(1f)
+                      )
+                      FilterChip(
+                          selected = selectedType == IngredientType.COUNT,
+                          onClick = { selectedType = IngredientType.COUNT },
+                          label = { Text("عددی") },
+                          modifier = Modifier.weight(1f)
+                      )
+                  }
+
+                  Spacer(modifier = Modifier.height(16.dp))
+
+                  // Dynamic fields based on type
+                  if (selectedType == IngredientType.WEIGHT) {
+                      OutlinedTextField(
+                          value = totalWeight,
+                          onValueChange = { totalWeight = it },
+                          label = { Text("وزن کل (گرم)") },
+                          keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                          modifier = Modifier.fillMaxWidth(),
+                          singleLine = true
+                      )
+                      Spacer(modifier = Modifier.height(8.dp))
+                      OutlinedTextField(
+                          value = totalPrice,
+                          onValueChange = { totalPrice = it },
+                          label = { Text("قیمت کل (تومان)") },
+                          keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                          modifier = Modifier.fillMaxWidth(),
+                          singleLine = true
+                      )
+                      Spacer(modifier = Modifier.height(8.dp))
+                      OutlinedTextField(
+                          value = usedAmount,
+                          onValueChange = { usedAmount = it },
+                          label = { Text("مقدار مصرفی (گرم)") },
+                          keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                          modifier = Modifier.fillMaxWidth(),
+                          singleLine = true
+                      )
+                  } else {
+                      OutlinedTextField(
+                          value = unitPrice,
+                          onValueChange = { unitPrice = it },
+                          label = { Text("قیمت هر واحد (تومان)") },
+                          keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                          modifier = Modifier.fillMaxWidth(),
+                          singleLine = true
+                      )
+                      Spacer(modifier = Modifier.height(8.dp))
+                      OutlinedTextField(
+                          value = countUsed,
+                          onValueChange = { countUsed = it },
+                          label = { Text("تعداد مصرفی") },
+                          keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                          modifier = Modifier.fillMaxWidth(),
+                          singleLine = true
+                      )
+                  }
+
+                  Spacer(modifier = Modifier.height(24.dp))
+
+                  // Add button
+                  Button(
+                      onClick = {
+                          val ingredient = Ingredient(
+                              id = System.currentTimeMillis().toString(),
+                              name = name,
+                              type = selectedType,
+                              totalWeight = totalWeight.toDoubleOrNull() ?: 0.0,
+                              totalPrice = totalPrice.toDoubleOrNull() ?: 0.0,
+                              usedAmount = usedAmount.toDoubleOrNull() ?: 0.0,
+                              unitPrice = unitPrice.toDoubleOrNull() ?: 0.0,
+                              countUsed = countUsed.toDoubleOrNull() ?: 0.0
+                          )
+                          onAdd(ingredient)
+                      },
+                      modifier = Modifier.fillMaxWidth(),
+                      enabled = name.isNotBlank()
+                  ) {
+                      Text("افزودن ماده")
+                  }
+              }
+          }
+          EOF
+
+          # ---------- Calculate Bottom Sheet ----------
+          cat << 'EOF' > app/src/main/java/com/example/spa2native/ui/components/CalculateSheet.kt
+          package com.example.spa2native.ui.components
+
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.foundation.text.KeyboardOptions
+          import androidx.compose.material3.*
+          import androidx.compose.runtime.*
+          import androidx.compose.ui.Alignment
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.text.input.KeyboardType
+          import androidx.compose.ui.unit.dp
+          import com.example.spa2native.data.AppSettings
+
+          @Composable
+          fun CalculateSheetContent(
+              settings: AppSettings,
+              onCalculate: (Int, Double, Double) -> Unit,
+              onDismiss: () -> Unit,
+              modifier: Modifier = Modifier
+          ) {
+              var batchCount by remember { mutableStateOf(settings.batchCount.toString()) }
+              var profitPercent by remember { mutableStateOf(settings.profitPercent.toString()) }
+              var packagingCost by remember { mutableStateOf(settings.packagingCost.toString()) }
+
+              Column(
+                  modifier = modifier
+                      .fillMaxWidth()
+                      .padding(24.dp),
+                  horizontalAlignment = Alignment.CenterHorizontally
+              ) {
+                  Text(
+                      text = "تنظیمات محاسبه",
+                      style = MaterialTheme.typography.headlineSmall,
+                      modifier = Modifier.padding(bottom = 16.dp)
+                  )
+
+                  OutlinedTextField(
+                      value = batchCount,
+                      onValueChange = { batchCount = it },
+                      label = { Text("تعداد خروجی (عدد)") },
+                      keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                      modifier = Modifier.fillMaxWidth(),
+                      singleLine = true
+                  )
+
+                  Spacer(modifier = Modifier.height(12.dp))
+
+                  OutlinedTextField(
+                      value = profitPercent,
+                      onValueChange = { profitPercent = it },
+                      label = { Text("درصد سود") },
+                      keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                      modifier = Modifier.fillMaxWidth(),
+                      singleLine = true,
+                      trailingIcon = { Text("%") }
+                  )
+
+                  Spacer(modifier = Modifier.height(12.dp))
+
+                  OutlinedTextField(
+                      value = packagingCost,
+                      onValueChange = { packagingCost = it },
+                      label = { Text("هزینه بسته‌بندی هر عدد (تومان)") },
+                      keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                      modifier = Modifier.fillMaxWidth(),
+                      singleLine = true
+                  )
+
+                  Spacer(modifier = Modifier.height(24.dp))
+
+                  Button(
+                      onClick = {
+                          onCalculate(
+                              batchCount.toIntOrNull() ?: 1,
+                              packagingCost.toDoubleOrNull() ?: 0.0,
+                              profitPercent.toDoubleOrNull() ?: 30.0
+                          )
+                      },
+                      modifier = Modifier.fillMaxWidth()
+                  ) {
+                      Text("محاسبه")
+                  }
+              }
+          }
+          EOF
+
+          # ---------- Add Group Bottom Sheet ----------
+          cat << 'EOF' > app/src/main/java/com/example/spa2native/ui/components/AddGroupSheet.kt
+          package com.example.spa2native.ui.components
+
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.material3.*
+          import androidx.compose.runtime.*
+          import androidx.compose.ui.Alignment
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.unit.dp
+
+          @Composable
+          fun AddGroupSheetContent(
+              onAdd: (String) -> Unit,
+              onDismiss: () -> Unit,
+              modifier: Modifier = Modifier
+          ) {
+              var groupName by remember { mutableStateOf("") }
+
+              Column(
+                  modifier = modifier
+                      .fillMaxWidth()
+                      .padding(24.dp),
+                  horizontalAlignment = Alignment.CenterHorizontally
+              ) {
+                  Text(
+                      text = "ایجاد گروه جدید",
+                      style = MaterialTheme.typography.headlineSmall,
+                      modifier = Modifier.padding(bottom = 16.dp)
+                  )
+
+                  OutlinedTextField(
+                      value = groupName,
+                      onValueChange = { groupName = it },
+                      label = { Text("نام گروه") },
+                      modifier = Modifier.fillMaxWidth(),
+                      singleLine = true
+                  )
+
+                  Spacer(modifier = Modifier.height(24.dp))
+
+                  Button(
+                      onClick = {
+                          if (groupName.isNotBlank()) {
+                              onAdd(groupName)
+                          }
+                      },
+                      modifier = Modifier.fillMaxWidth(),
+                      enabled = groupName.isNotBlank()
+                  ) {
+                      Text("ایجاد گروه")
+                  }
+              }
+          }
+          EOF
+
+          # ---------- Ingredients Screen ----------
+          cat << 'EOF' > app/src/main/java/com/example/spa2native/ui/screens/IngredientsScreen.kt
+          package com.example.spa2native.ui.screens
+
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.foundation.lazy.LazyColumn
+          import androidx.compose.foundation.lazy.items
+          import androidx.compose.material.icons.Icons
+          import androidx.compose.material.icons.filled.Save
+          import androidx.compose.material3.*
+          import androidx.compose.runtime.*
+          import androidx.compose.ui.Alignment
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.unit.dp
+          import com.example.spa2native.data.Group
+          import com.example.spa2native.data.Ingredient
+          import com.example.spa2native.data.AppSettings
+
+          @Composable
+          fun IngredientsScreen(
+              ingredients: List<Ingredient>,
+              groups: List<Group>,
+              settings: AppSettings,
+              onRemoveIngredient: (String) -> Unit,
+              onSaveGroup: (String) -> Unit,
+              onLoadGroup: (String) -> Unit,
+              onEditIngredient: (String) -> Unit,
+              onShowAddGroupSheet: () -> Unit,
+              modifier: Modifier = Modifier
+          ) {
+              var groupName by remember { mutableStateOf("") }
+
+              Column(
+                  modifier = modifier
+                      .fillMaxSize()
+                      .padding(horizontal = 16.dp)
+              ) {
+                  // Group name input row
+                  Row(
+                      modifier = Modifier
+                          .fillMaxWidth()
+                          .padding(vertical = 8.dp),
+                      verticalAlignment = Alignment.CenterVertically,
+                      horizontalArrangement = Arrangement.spacedBy(8.dp)
+                  ) {
+                      OutlinedTextField(
+                          value = groupName,
+                          onValueChange = { groupName = it },
+                          label = { Text("نام گروه") },
+                          modifier = Modifier.weight(1f),
+                          singleLine = true
+                      )
+                      IconButton(
+                          onClick = { 
+                              if (groupName.isNotBlank()) {
+                                  onSaveGroup(groupName)
+                                  groupName = ""
+                              }
+                          }
+                      ) {
+                          Icon(Icons.Default.Save, contentDescription = "Save Group")
+                      }
+                      IconButton(
+                          onClick = onShowAddGroupSheet
+                      ) {
+                          Icon(Icons.Default.Add, contentDescription = "Add Group")
+                      }
+                  }
+
+                  // Ingredient list
+                  LazyColumn(
+                      modifier = Modifier.fillMaxSize(),
+                      verticalArrangement = Arrangement.spacedBy(4.dp)
+                  ) {
+                      items(ingredients) { ingredient ->
+                          IngredientItem(
+                              ingredient = ingredient,
+                              onRemove = { onRemoveIngredient(ingredient.id) },
+                              onEdit = { onEditIngredient(ingredient.id) }
+                          )
+                      }
+                  }
+              }
+          }
+
+          @Composable
+          fun IngredientItem(
+              ingredient: Ingredient,
+              onRemove: () -> Unit,
+              onEdit: () -> Unit,
+              modifier: Modifier = Modifier
+          ) {
+              Card(
+                  modifier = modifier.fillMaxWidth(),
+                  colors = CardDefaults.cardColors(
+                      containerColor = MaterialTheme.colorScheme.surface
+                  )
+              ) {
+                  Row(
+                      modifier = Modifier
+                          .fillMaxWidth()
+                          .padding(12.dp),
+                      horizontalArrangement = Arrangement.SpaceBetween,
+                      verticalAlignment = Alignment.CenterVertically
+                  ) {
+                      Column {
+                          Text(
+                              text = ingredient.name,
+                              style = MaterialTheme.typography.titleMedium
+                          )
+                          Text(
+                              text = when (ingredient.type) {
+                                  com.example.spa2native.data.IngredientType.WEIGHT -> 
+                                      "وزنی: ${ingredient.usedAmount}g از ${ingredient.totalWeight}g"
+                                  com.example.spa2native.data.IngredientType.COUNT ->
+                                      "تعدادی: ${ingredient.countUsed} عدد"
+                              },
+                              style = MaterialTheme.typography.bodySmall,
+                              color = MaterialTheme.colorScheme.onSurfaceVariant
+                          )
+                      }
+                      Row {
+                          IconButton(onClick = onEdit) {
+                              Icon(Icons.Default.Edit, contentDescription = "Edit")
+                          }
+                          IconButton(onClick = onRemove) {
+                              Icon(Icons.Default.Delete, contentDescription = "Delete")
+                          }
+                      }
+                  }
+              }
+          }
+          EOF
+
+          # ---------- Groups Screen ----------
+          cat << 'EOF' > app/src/main/java/com/example/spa2native/ui/screens/GroupsScreen.kt
+          package com.example.spa2native.ui.screens
+
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.foundation.lazy.LazyColumn
+          import androidx.compose.foundation.lazy.items
+          import androidx.compose.material.icons.Icons
+          import androidx.compose.material.icons.filled.Add
+          import androidx.compose.material.icons.filled.Delete
+          import androidx.compose.material.icons.filled.Upload
+          import androidx.compose.material3.*
+          import androidx.compose.runtime.Composable
+          import androidx.compose.ui.Alignment
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.unit.dp
+          import com.example.spa2native.data.Group
+
+          @Composable
+          fun GroupsScreen(
+              groups: List<Group>,
+              onLoadGroup: (String) -> Unit,
+              onDeleteGroup: (String) -> Unit,
+              onShowAddGroupSheet: () -> Unit,
+              modifier: Modifier = Modifier
+          ) {
+              Column(
+                  modifier = modifier
+                      .fillMaxSize()
+                      .padding(16.dp)
+              ) {
+                  // Header with add button
+                  Row(
+                      modifier = Modifier.fillMaxWidth(),
+                      horizontalArrangement = Arrangement.SpaceBetween,
+                      verticalAlignment = Alignment.CenterVertically
+                  ) {
+                      Text(
+                          text = "گروه‌های ذخیره‌شده",
+                          style = MaterialTheme.typography.titleLarge
+                      )
+                      IconButton(onClick = onShowAddGroupSheet) {
+                          Icon(Icons.Default.Add, contentDescription = "Add Group")
+                      }
+                  }
+
+                  Spacer(modifier = Modifier.height(8.dp))
+
+                  LazyColumn(
+                      verticalArrangement = Arrangement.spacedBy(8.dp)
+                  ) {
+                      items(groups) { group ->
+                          GroupItem(
+                              group = group,
+                              onLoad = { onLoadGroup(group.id) },
+                              onDelete = { onDeleteGroup(group.id) }
+                          )
+                      }
+                  }
+              }
+          }
+
+          @Composable
+          fun GroupItem(
+              group: Group,
+              onLoad: () -> Unit,
+              onDelete: () -> Unit,
+              modifier: Modifier = Modifier
+          ) {
+              Card(
+                  modifier = modifier.fillMaxWidth(),
+                  colors = CardDefaults.cardColors(
+                      containerColor = MaterialTheme.colorScheme.surface
+                  )
+              ) {
+                  Row(
+                      modifier = Modifier
+                          .fillMaxWidth()
+                          .padding(12.dp),
+                      horizontalArrangement = Arrangement.SpaceBetween,
+                      verticalAlignment = Alignment.CenterVertically
+                  ) {
+                      Column {
+                          Text(
+                              text = group.name,
+                              style = MaterialTheme.typography.titleMedium
+                          )
+                          Text(
+                              text = "${group.ingredients.size} ماده",
+                              style = MaterialTheme.typography.bodySmall,
+                              color = MaterialTheme.colorScheme.onSurfaceVariant
+                          )
+                      }
+                      Row {
+                          IconButton(onClick = onLoad) {
+                              Icon(Icons.Default.Upload, contentDescription = "Load")
+                          }
+                          IconButton(onClick = onDelete) {
+                              Icon(Icons.Default.Delete, contentDescription = "Delete")
+                          }
+                      }
+                  }
+              }
+          }
+          EOF
+
+          # ---------- Result Screen ----------
+          cat << 'EOF' > app/src/main/java/com/example/spa2native/ui/screens/ResultScreen.kt
+          package com.example.spa2native.ui.screens
+
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.foundation.lazy.LazyColumn
+          import androidx.compose.foundation.lazy.items
+          import androidx.compose.material3.*
+          import androidx.compose.runtime.Composable
+          import androidx.compose.ui.Alignment
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.unit.dp
+          import com.example.spa2native.data.CalculationResult
+          import com.example.spa2native.data.Ingredient
+
+          @Composable
+          fun ResultScreen(
+              result: CalculationResult?,
+              ingredients: List<Ingredient>,
+              modifier: Modifier = Modifier
+          ) {
+              if (result == null || ingredients.isEmpty()) {
+                  Box(
+                      modifier = modifier.fillMaxSize(),
+                      contentAlignment = Alignment.Center
+                  ) {
+                      Text(
+                          text = "مواد اولیه را اضافه کنید و دکمه محاسبه را بزنید.",
+                          style = MaterialTheme.typography.bodyLarge,
+                          color = MaterialTheme.colorScheme.onSurfaceVariant
+                      )
+                  }
+                  return
+              }
+
+              LazyColumn(
+                  modifier = modifier
+                      .fillMaxSize()
+                      .padding(16.dp),
+                  verticalArrangement = Arrangement.spacedBy(12.dp)
+              ) {
+                  item {
+                      Text(
+                          text = "نتیجه محاسبه",
+                          style = MaterialTheme.typography.headlineSmall
+                      )
+                  }
+
+                  // Summary cards
+                  item {
+                      ResultSummary(result = result)
+                  }
+
+                  // Details
+                  item {
+                      Text(
+                          text = "جزئیات هزینه هر ماده",
+                          style = MaterialTheme.typography.titleMedium,
+                          modifier = Modifier.padding(top = 8.dp)
+                      )
+                  }
+
+                  items(result.details) { detail ->
+                      Card(
+                          modifier = Modifier.fillMaxWidth(),
+                          colors = CardDefaults.cardColors(
+                              containerColor = MaterialTheme.colorScheme.surface
+                          )
+                      ) {
+                          Row(
+                              modifier = Modifier
+                                  .fillMaxWidth()
+                                  .padding(12.dp),
+                              horizontalArrangement = Arrangement.SpaceBetween
+                          ) {
+                              Text(
+                                  text = detail.ingredient.name,
+                                  style = MaterialTheme.typography.bodyMedium
+                              )
+                              Text(
+                                  text = "${String.format("%.2f", detail.cost)} تومان",
+                                  style = MaterialTheme.typography.bodyMedium,
+                                  color = MaterialTheme.colorScheme.primary
+                              )
+                          }
+                      }
+                  }
+              }
+          }
+
+          @Composable
+          fun ResultSummary(result: CalculationResult) {
+              Card(
+                  modifier = Modifier.fillMaxWidth(),
+                  colors = CardDefaults.cardColors(
+                      containerColor = MaterialTheme.colorScheme.surface
+                  )
+              ) {
+                  Column(
+                      modifier = Modifier
+                          .fillMaxWidth()
+                          .padding(16.dp),
+                      verticalArrangement = Arrangement.spacedBy(8.dp)
+                  ) {
+                      ResultRow("قیمت فروش هر عدد", "${String.format("%.0f", result.sellingPricePerUnit)} تومان")
+                      ResultRow("سود هر عدد", "${String.format("%.0f", result.profitPerUnit)} تومان")
+                      ResultRow("هزینه تمام‌شده هر عدد", "${String.format("%.0f", result.costPerUnit)} تومان")
+                      ResultRow("سود کل", "${String.format("%.0f", result.totalProfit)} تومان")
+                      Divider()
+                      ResultRow("مجموع هزینه مواد اولیه", "${String.format("%.0f", result.totalMaterialCost)} تومان")
+                      ResultRow("مجموع هزینه بسته‌بندی", "${String.format("%.0f", result.totalPackaging)} تومان")
+                      ResultRow("مجموع هزینه تولید", "${String.format("%.0f", result.totalProductionCost)} تومان")
+                      ResultRow("تعداد خروجی", "${result.batchCount} عدد")
+                      ResultRow("درصد سود", "${String.format("%.0f", result.profitPercent)}%")
+                  }
+              }
+          }
+
+          @Composable
+          fun ResultRow(label: String, value: String) {
+              Row(
+                  modifier = Modifier.fillMaxWidth(),
+                  horizontalArrangement = Arrangement.SpaceBetween
+              ) {
+                  Text(
+                      text = label,
+                      style = MaterialTheme.typography.bodyMedium,
+                      color = MaterialTheme.colorScheme.onSurfaceVariant
+                  )
+                  Text(
+                      text = value,
+                      style = MaterialTheme.typography.bodyMedium
+                  )
+              }
+          }
+          EOF
+
+          # ---------- Typography ----------
+          cat << 'EOF' > app/src/main/java/com/example/spa2native/ui/theme/Type.kt
+          package com.example.spa2native.ui.theme
+
+          import androidx.compose.material3.Typography
+          import androidx.compose.ui.text.TextStyle
+          import androidx.compose.ui.text.font.FontFamily
+          import androidx.compose.ui.text.font.FontWeight
+          import androidx.compose.ui.unit.sp
+
+          val Typography = Typography(
+              displayLarge = TextStyle(
+                  fontWeight = FontWeight.Normal,
+                  fontSize = 57.sp,
+                  lineHeight = 64.sp,
+                  letterSpacing = (-0.25).sp
+              ),
+              displayMedium = TextStyle(
+                  fontWeight = FontWeight.Normal,
+                  fontSize = 45.sp,
+                  lineHeight = 52.sp,
+                  letterSpacing = 0.sp
+              ),
+              displaySmall = TextStyle(
+                  fontWeight = FontWeight.Normal,
+                  fontSize = 36.sp,
+                  lineHeight = 44.sp,
+                  letterSpacing = 0.sp
+              ),
+              headlineLarge = TextStyle(
+                  fontWeight = FontWeight.Normal,
+                  fontSize = 32.sp,
+                  lineHeight = 40.sp,
+                  letterSpacing = 0.sp
+              ),
+              headlineMedium = TextStyle(
+                  fontWeight = FontWeight.Normal,
+                  fontSize = 28.sp,
+                  lineHeight = 36.sp,
+                  letterSpacing = 0.sp
+              ),
+              headlineSmall = TextStyle(
+                  fontWeight = FontWeight.Medium,
+                  fontSize = 24.sp,
+                  lineHeight = 32.sp,
+                  letterSpacing = 0.sp
+              ),
+              titleLarge = TextStyle(
+                  fontWeight = FontWeight.Medium,
+                  fontSize = 22.sp,
+                  lineHeight = 28.sp,
+                  letterSpacing = 0.sp
+              ),
+              titleMedium = TextStyle(
+                  fontWeight = FontWeight.Medium,
+                  fontSize = 16.sp,
+                  lineHeight = 24.sp,
+                  letterSpacing = 0.15.sp
+              ),
+              titleSmall = TextStyle(
+                  fontWeight = FontWeight.Medium,
+                  fontSize = 14.sp,
+                  lineHeight = 20.sp,
+                  letterSpacing = 0.1.sp
+              ),
+              bodyLarge = TextStyle(
+                  fontWeight = FontWeight.Normal,
+                  fontSize = 16.sp,
+                  lineHeight = 24.sp,
+                  letterSpacing = 0.5.sp
+              ),
+              bodyMedium = TextStyle(
+                  fontWeight = FontWeight.Normal,
+                  fontSize = 14.sp,
+                  lineHeight = 20.sp,
+                  letterSpacing = 0.25.sp
+              ),
+              bodySmall = TextStyle(
+                  fontWeight = FontWeight.Normal,
+                  fontSize = 12.sp,
+                  lineHeight = 16.sp,
+                  letterSpacing = 0.4.sp
+              ),
+              labelLarge = TextStyle(
+                  fontWeight = FontWeight.Medium,
+                  fontSize = 14.sp,
+                  lineHeight = 20.sp,
+                  letterSpacing = 0.1.sp
+              ),
+              labelMedium = TextStyle(
+                  fontWeight = FontWeight.Medium,
+                  fontSize = 12.sp,
+                  lineHeight = 16.sp,
+                  letterSpacing = 0.5.sp
+              ),
+              labelSmall = TextStyle(
+                  fontWeight = FontWeight.Medium,
+                  fontSize = 11.sp,
+                  lineHeight = 16.sp,
+                  letterSpacing = 0.5.sp
+              )
+          )
+          EOF
+
+          # ---------- Gradle Wrapper ----------
+          cat << 'EOF' > gradle/wrapper/gradle-wrapper.properties
+          distributionBase=GRADLE_USER_HOME
+          distributionPath=wrapper/dists
+          distributionUrl=https\://services.gradle.org/distributions/gradle-8.2-bin.zip
+          zipStoreBase=GRADLE_USER_HOME
+          zipStorePath=wrapper/dists
+          EOF
+
+          curl -L https://raw.githubusercontent.com/gradle/gradle/v8.2.0/gradlew -o gradlew
+          curl -L https://raw.githubusercontent.com/gradle/gradle/v8.2.0/gradle/wrapper/gradle-wrapper.jar -o gradle/wrapper/gradle-wrapper.jar
+          chmod +x gradlew
+
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug
+
+      - name: Upload Final APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Native-SPA-APK
+          path: app/build/outputs/apk/debug/*.apk
