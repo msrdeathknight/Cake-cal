@@ -1,0 +1,3226 @@
+# Complete, self-contained Android build workflow.
+#
+# Put this file at: .github/workflows/build-signed-apk.yaml
+#
+# INTERNAL / PRIVATE DISTRIBUTION SIGNING
+#
+# A fixed RSA-4096 Android signing keystore and its passwords are embedded directly in this file.
+# No GitHub repository secrets are required. Every build uses the same certificate, so APK updates
+# remain install-compatible with earlier APKs produced by this workflow.
+#
+# SECURITY WARNING: Anyone who can read this workflow or its Git history can extract the private
+# signing key and sign another APK as this application. Do not use this embedded identity for a
+# public repository, Google Play production release, or any security-sensitive distribution.
+# Embedded certificate SHA-256:
+#   0C:6D:7F:0C:F2:DB:43:72:95:42:BA:92:8B:2A:F8:DE:8D:63:BB:BD:BB:26:F9:65:23:63:5C:AD:28:07:C2:73
+#
+# The workflow intentionally produces only one minified, resource-shrunk, signed release APK.
+# It does not build a debug APK or an Android App Bundle.
+
+name: Build signed Sweet Cost APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_name:
+        description: "Version name (for example 1.0.0)"
+        required: true
+        default: "1.0.0"
+        type: string
+      version_code:
+        description: "Positive integer Android version code"
+        required: true
+        default: "1"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: signed-apk-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-signed-apk:
+    name: Generate project and build signed APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout workflow repository
+        uses: actions/checkout@v4
+
+      - name: Generate complete native Android project
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf app build.gradle.kts settings.gradle.kts gradle.properties
+          mkdir -p 'app'
+          cat > 'app/build.gradle.kts' <<'__SWEET_COST_FILE_001__'
+          import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+          
+          plugins {
+              id("com.android.application")
+              id("org.jetbrains.kotlin.plugin.compose")
+          }
+          
+          android {
+              namespace = "ir.sweetcost.app"
+              compileSdk = 37
+          
+              defaultConfig {
+                  applicationId = "ir.sweetcost.app"
+                  minSdk = 23
+                  targetSdk = 37
+                  versionCode = (System.getenv("VERSION_CODE") ?: "1").toInt()
+                  versionName = System.getenv("VERSION_NAME") ?: "1.0.0"
+          
+                  vectorDrawables.useSupportLibrary = true
+              }
+          
+              signingConfigs {
+                  create("release") {
+                      val keystorePath = System.getenv("ANDROID_KEYSTORE_PATH")
+                      if (!keystorePath.isNullOrBlank()) {
+                          storeFile = file(keystorePath)
+                          storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                          keyAlias = System.getenv("ANDROID_KEY_ALIAS")
+                          keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+                          enableV1Signing = true
+                          enableV2Signing = true
+                          enableV3Signing = true
+                          enableV4Signing = true
+                      }
+                  }
+              }
+          
+              buildTypes {
+                  release {
+                      isDebuggable = false
+                      isMinifyEnabled = true
+                      isShrinkResources = true
+                      signingConfig = signingConfigs.getByName("release")
+                      proguardFiles(
+                          getDefaultProguardFile("proguard-android-optimize.txt"),
+                          "proguard-rules.pro",
+                      )
+                  }
+              }
+          
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_17
+                  targetCompatibility = JavaVersion.VERSION_17
+              }
+          
+              buildFeatures {
+                  compose = true
+                  buildConfig = false
+              }
+          
+              packaging {
+                  resources.excludes += setOf(
+                      "/META-INF/{AL2.0,LGPL2.1}",
+                      "/META-INF/LICENSE*",
+                      "/META-INF/NOTICE*",
+                  )
+              }
+          }
+          
+          kotlin {
+              compilerOptions {
+                  jvmTarget.set(JvmTarget.JVM_17)
+                  freeCompilerArgs.add("-Xannotation-default-target=param-property")
+              }
+          }
+          
+          dependencies {
+              val composeBom = platform("androidx.compose:compose-bom-alpha:2026.07.01")
+              implementation(composeBom)
+          
+              implementation("androidx.activity:activity-compose:1.13.0")
+              implementation("androidx.compose.animation:animation")
+              implementation("androidx.compose.foundation:foundation")
+              implementation("androidx.compose.material:material-icons-extended")
+              implementation("androidx.compose.material3:material3")
+              implementation("androidx.compose.ui:ui")
+              implementation("androidx.compose.ui:ui-tooling-preview")
+              implementation("androidx.datastore:datastore-preferences:1.2.1")
+              implementation("androidx.lifecycle:lifecycle-runtime-compose:2.10.0")
+              implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.10.0")
+              implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+          
+              debugImplementation("androidx.compose.ui:ui-tooling")
+          }
+          __SWEET_COST_FILE_001__
+
+          mkdir -p 'app'
+          cat > 'app/proguard-rules.pro' <<'__SWEET_COST_FILE_002__'
+          # The app uses org.json with direct model mapping; no reflective model keep rules are required.
+          # Keep useful source information for readable crash reports.
+          -keepattributes SourceFile,LineNumberTable
+          -renamesourcefileattribute SourceFile
+          __SWEET_COST_FILE_002__
+
+          mkdir -p 'app/src/main'
+          cat > 'app/src/main/AndroidManifest.xml' <<'__SWEET_COST_FILE_003__'
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+          
+              <application
+                  android:allowBackup="true"
+                  android:dataExtractionRules="@xml/data_extraction_rules"
+                  android:fullBackupContent="@xml/backup_rules"
+                  android:icon="@mipmap/ic_launcher"
+                  android:label="@string/app_name"
+                  android:roundIcon="@mipmap/ic_launcher_round"
+                  android:supportsRtl="true"
+                  android:theme="@style/Theme.SweetCost"
+                  android:enableOnBackInvokedCallback="true">
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true"
+                      android:screenOrientation="unspecified">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          
+          </manifest>
+          __SWEET_COST_FILE_003__
+
+          mkdir -p 'app/src/main/java/ir/sweetcost/app'
+          cat > 'app/src/main/java/ir/sweetcost/app/MainActivity.kt' <<'__SWEET_COST_FILE_004__'
+          package ir.sweetcost.app
+          
+          import android.os.Bundle
+          import androidx.activity.ComponentActivity
+          import androidx.activity.compose.setContent
+          import androidx.activity.enableEdgeToEdge
+          import androidx.activity.viewModels
+          import androidx.compose.runtime.CompositionLocalProvider
+          import androidx.compose.runtime.getValue
+          import androidx.compose.ui.platform.LocalLayoutDirection
+          import androidx.compose.ui.unit.LayoutDirection
+          import androidx.lifecycle.compose.collectAsStateWithLifecycle
+          import ir.sweetcost.app.ui.CakeApp
+          import ir.sweetcost.app.ui.CakeViewModel
+          import ir.sweetcost.app.ui.theme.SweetCostTheme
+          
+          class MainActivity : ComponentActivity() {
+              private val viewModel: CakeViewModel by viewModels()
+          
+              override fun onCreate(savedInstanceState: Bundle?) {
+                  super.onCreate(savedInstanceState)
+                  enableEdgeToEdge()
+                  setContent {
+                      val state by viewModel.state.collectAsStateWithLifecycle()
+                      SweetCostTheme(themeMode = state.themeMode) {
+                          CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                              CakeApp(state = state, viewModel = viewModel)
+                          }
+                      }
+                  }
+              }
+          }
+          __SWEET_COST_FILE_004__
+
+          mkdir -p 'app/src/main/java/ir/sweetcost/app/data'
+          cat > 'app/src/main/java/ir/sweetcost/app/data/AppRepository.kt' <<'__SWEET_COST_FILE_005__'
+          package ir.sweetcost.app.data
+          
+          import android.content.Context
+          import androidx.datastore.preferences.core.edit
+          import androidx.datastore.preferences.core.stringPreferencesKey
+          import androidx.datastore.preferences.preferencesDataStore
+          import ir.sweetcost.app.model.AppState
+          import ir.sweetcost.app.model.AppTab
+          import ir.sweetcost.app.model.CalculationResult
+          import ir.sweetcost.app.model.CalculationSettings
+          import ir.sweetcost.app.model.Ingredient
+          import ir.sweetcost.app.model.IngredientCost
+          import ir.sweetcost.app.model.MeasureType
+          import ir.sweetcost.app.model.SavedGroup
+          import ir.sweetcost.app.model.ThemeMode
+          import kotlinx.coroutines.flow.Flow
+          import kotlinx.coroutines.flow.catch
+          import kotlinx.coroutines.flow.map
+          import org.json.JSONArray
+          import org.json.JSONObject
+          import java.io.IOException
+          import java.util.UUID
+          
+          private val Context.appDataStore by preferencesDataStore(name = "sweet_cost_state")
+          
+          /**
+           * DataStore-backed persistence. JSON is intentionally mapped without reflection so release builds
+           * remain safe under R8 and old exports from the original single-file HTML app can be imported.
+           */
+          class AppRepository(private val context: Context) {
+              private val stateKey = stringPreferencesKey("state_json_v2")
+          
+              val state: Flow<AppState> = context.appDataStore.data
+                  .catch { error ->
+                      if (error is IOException) emit(androidx.datastore.preferences.core.emptyPreferences())
+                      else throw error
+                  }
+                  .map { preferences ->
+                      preferences[stateKey]
+                          ?.let(::decodeState)
+                          ?.copy(isLoading = false)
+                          ?: AppState(isLoading = false)
+                  }
+          
+              suspend fun save(state: AppState) {
+                  val json = encodeState(state.copy(isLoading = false)).toString()
+                  context.appDataStore.edit { it[stateKey] = json }
+              }
+          
+              fun exportGroups(groups: List<SavedGroup>): String = JSONObject()
+                  .put("schema", "ir.sweetcost.groups")
+                  .put("version", 2)
+                  .put("exportedAt", System.currentTimeMillis())
+                  .put("groups", groupsToJson(groups))
+                  .toString(2)
+          
+              /** Accepts both this native schema and the legacy HTML array export. */
+              fun importGroups(raw: String): List<SavedGroup> {
+                  val text = raw.trim()
+                  val array = when {
+                      text.startsWith("[") -> JSONArray(text)
+                      text.startsWith("{") -> JSONObject(text).optJSONArray("groups")
+                          ?: throw IllegalArgumentException("ساختار فایل گروه‌ها معتبر نیست.")
+                      else -> throw IllegalArgumentException("فایل JSON معتبر نیست.")
+                  }
+                  return parseGroups(array).map { group ->
+                      group.copy(
+                          id = group.id.ifBlank { UUID.randomUUID().toString() },
+                          name = group.name.trim(),
+                      )
+                  }.filter { it.name.isNotBlank() }
+              }
+          
+              private fun encodeState(state: AppState) = JSONObject()
+                  .put("version", 2)
+                  .put("ingredients", ingredientsToJson(state.ingredients))
+                  .put("groups", groupsToJson(state.groups))
+                  .put("activeGroupId", state.activeGroupId ?: JSONObject.NULL)
+                  .put("groupName", state.groupName)
+                  .put("settings", settingsToJson(state.settings))
+                  .put("result", state.result?.let(::resultToJson) ?: JSONObject.NULL)
+                  .put("selectedTab", state.selectedTab.name)
+                  .put("themeMode", state.themeMode.name)
+          
+              private fun decodeState(raw: String): AppState = runCatching {
+                  val json = JSONObject(raw)
+                  AppState(
+                      isLoading = false,
+                      ingredients = parseIngredients(json.optJSONArray("ingredients") ?: JSONArray()),
+                      groups = parseGroups(json.optJSONArray("groups") ?: JSONArray()),
+                      activeGroupId = json.optNullableString("activeGroupId"),
+                      groupName = json.optString("groupName", ""),
+                      settings = parseSettings(json.optJSONObject("settings")),
+                      result = parseResult(json.optJSONObject("result")),
+                      selectedTab = enumOrDefault(json.optString("selectedTab"), AppTab.INGREDIENTS),
+                      themeMode = enumOrDefault(json.optString("themeMode"), ThemeMode.SYSTEM),
+                  )
+              }.getOrElse { AppState(isLoading = false) }
+          
+              private fun groupsToJson(groups: List<SavedGroup>) = JSONArray().also { array ->
+                  groups.forEach { group ->
+                      array.put(
+                          JSONObject()
+                              .put("id", group.id)
+                              .put("name", group.name)
+                              .put("updatedAt", group.updatedAt)
+                              .put("ingredients", ingredientsToJson(group.ingredients)),
+                      )
+                  }
+              }
+          
+              private fun parseGroups(array: JSONArray): List<SavedGroup> = buildList {
+                  for (index in 0 until array.length()) {
+                      val json = array.optJSONObject(index) ?: continue
+                      val name = json.optString("name").trim()
+                      if (name.isBlank()) continue
+                      add(
+                          SavedGroup(
+                              id = json.optString("id").ifBlank { UUID.randomUUID().toString() },
+                              name = name,
+                              ingredients = parseIngredients(json.optJSONArray("ingredients") ?: JSONArray()),
+                              updatedAt = json.optLong("updatedAt", System.currentTimeMillis()),
+                          ),
+                      )
+                  }
+              }
+          
+              private fun ingredientsToJson(ingredients: List<Ingredient>) = JSONArray().also { array ->
+                  ingredients.forEach { ingredient ->
+                      array.put(
+                          JSONObject()
+                              .put("id", ingredient.id)
+                              .put("name", ingredient.name)
+                              .put("measureType", ingredient.measureType.name)
+                              .put("purchaseAmount", ingredient.purchaseAmount)
+                              .put("totalPrice", ingredient.totalPrice)
+                              .put("usedAmount", ingredient.usedAmount),
+                      )
+                  }
+              }
+          
+              private fun parseIngredients(array: JSONArray): List<Ingredient> = buildList {
+                  for (index in 0 until array.length()) {
+                      val json = array.optJSONObject(index) ?: continue
+                      parseIngredient(json)?.let(::add)
+                  }
+              }
+          
+              private fun parseIngredient(json: JSONObject): Ingredient? {
+                  val name = json.optString("name").trim()
+                  if (name.isBlank()) return null
+          
+                  // Native v2 model.
+                  if (json.has("measureType")) {
+                      return Ingredient(
+                          id = json.optString("id").ifBlank { UUID.randomUUID().toString() },
+                          name = name,
+                          measureType = enumOrDefault(json.optString("measureType"), MeasureType.GRAM),
+                          purchaseAmount = json.optDouble("purchaseAmount", 0.0),
+                          totalPrice = json.optDouble("totalPrice", 0.0),
+                          usedAmount = json.optDouble("usedAmount", 0.0),
+                      ).takeIf { it.purchaseAmount > 0.0 && it.totalPrice >= 0.0 && it.usedAmount >= 0.0 }
+                  }
+          
+                  // Legacy HTML model: weight used totalWeight/totalPrice/usedAmount, count used unitPrice.
+                  return when (json.optString("type")) {
+                      "count" -> Ingredient(
+                          id = json.optString("id").ifBlank { UUID.randomUUID().toString() },
+                          name = name,
+                          measureType = MeasureType.COUNT,
+                          purchaseAmount = 1.0,
+                          totalPrice = json.optDouble("unitPrice", 0.0),
+                          usedAmount = json.optDouble("countUsed", 0.0),
+                      )
+                      else -> Ingredient(
+                          id = json.optString("id").ifBlank { UUID.randomUUID().toString() },
+                          name = name,
+                          measureType = MeasureType.GRAM,
+                          purchaseAmount = json.optDouble("totalWeight", 0.0),
+                          totalPrice = json.optDouble("totalPrice", 0.0),
+                          usedAmount = json.optDouble("usedAmount", 0.0),
+                      )
+                  }.takeIf { it.purchaseAmount > 0.0 && it.totalPrice >= 0.0 && it.usedAmount >= 0.0 }
+              }
+          
+              private fun settingsToJson(settings: CalculationSettings) = JSONObject()
+                  .put("outputCount", settings.outputCount)
+                  .put("profitPercent", settings.profitPercent)
+                  .put("packagingPerUnit", settings.packagingPerUnit)
+          
+              private fun parseSettings(json: JSONObject?): CalculationSettings {
+                  if (json == null) return CalculationSettings()
+                  return CalculationSettings(
+                      outputCount = json.optInt("outputCount", 1).coerceAtLeast(1),
+                      profitPercent = json.optDouble("profitPercent", 30.0).coerceAtLeast(0.0),
+                      packagingPerUnit = json.optDouble("packagingPerUnit", 0.0).coerceAtLeast(0.0),
+                  )
+              }
+          
+              private fun resultToJson(result: CalculationResult) = JSONObject()
+                  .put("totalMaterialCost", result.totalMaterialCost)
+                  .put("totalPackaging", result.totalPackaging)
+                  .put("totalProductionCost", result.totalProductionCost)
+                  .put("costPerUnit", result.costPerUnit)
+                  .put("profitPercent", result.profitPercent)
+                  .put("profitPerUnit", result.profitPerUnit)
+                  .put("sellingPricePerUnit", result.sellingPricePerUnit)
+                  .put("totalProfit", result.totalProfit)
+                  .put("outputCount", result.outputCount)
+                  .put("packagingPerUnit", result.packagingPerUnit)
+                  .put("details", JSONArray().also { details ->
+                      result.details.forEach { detail ->
+                          details.put(
+                              JSONObject()
+                                  .put("ingredientId", detail.ingredientId)
+                                  .put("name", detail.name)
+                                  .put("cost", detail.cost),
+                          )
+                      }
+                  })
+          
+              private fun parseResult(json: JSONObject?): CalculationResult? {
+                  if (json == null) return null
+                  val outputCount = json.optInt("outputCount", 0)
+                  if (outputCount <= 0) return null
+                  val details = buildList {
+                      val array = json.optJSONArray("details") ?: JSONArray()
+                      for (index in 0 until array.length()) {
+                          val item = array.optJSONObject(index) ?: continue
+                          add(
+                              IngredientCost(
+                                  ingredientId = item.optString("ingredientId"),
+                                  name = item.optString("name"),
+                                  cost = item.optDouble("cost", 0.0),
+                              ),
+                          )
+                      }
+                  }
+                  return CalculationResult(
+                      totalMaterialCost = json.optDouble("totalMaterialCost", 0.0),
+                      totalPackaging = json.optDouble("totalPackaging", 0.0),
+                      totalProductionCost = json.optDouble("totalProductionCost", 0.0),
+                      costPerUnit = json.optDouble("costPerUnit", 0.0),
+                      profitPercent = json.optDouble("profitPercent", 0.0),
+                      profitPerUnit = json.optDouble("profitPerUnit", 0.0),
+                      sellingPricePerUnit = json.optDouble("sellingPricePerUnit", 0.0),
+                      totalProfit = json.optDouble("totalProfit", 0.0),
+                      outputCount = outputCount,
+                      packagingPerUnit = json.optDouble("packagingPerUnit", 0.0),
+                      details = details,
+                  )
+              }
+          
+              private inline fun <reified T : Enum<T>> enumOrDefault(value: String, default: T): T =
+                  enumValues<T>().firstOrNull { it.name == value } ?: default
+          
+              private fun JSONObject.optNullableString(key: String): String? =
+                  if (!has(key) || isNull(key)) null else optString(key).takeIf { it.isNotBlank() }
+          }
+          __SWEET_COST_FILE_005__
+
+          mkdir -p 'app/src/main/java/ir/sweetcost/app/model'
+          cat > 'app/src/main/java/ir/sweetcost/app/model/Models.kt' <<'__SWEET_COST_FILE_006__'
+          package ir.sweetcost.app.model
+          
+          import java.util.UUID
+          
+          /** Three pages represented by icon-only items in the floating navigation toolbar. */
+          enum class AppTab(val title: String) {
+              INGREDIENTS("مواد اولیه"),
+              GROUPS("گروه‌های ذخیره‌شده"),
+              RESULT("نتیجه محاسبه"),
+          }
+          
+          enum class ThemeMode {
+              SYSTEM,
+              LIGHT,
+              DARK;
+          
+              fun next(): ThemeMode = when (this) {
+                  SYSTEM -> LIGHT
+                  LIGHT -> DARK
+                  DARK -> SYSTEM
+              }
+          }
+          
+          enum class MeasureType(
+              val title: String,
+              val unit: String,
+              val totalLabel: String,
+              val usedLabel: String,
+              val presets: List<Double>,
+          ) {
+              GRAM(
+                  title = "وزن گرم",
+                  unit = "گرم",
+                  totalLabel = "وزن کل خرید",
+                  usedLabel = "وزن مصرفی",
+                  presets = listOf(100.0, 250.0, 500.0, 1_000.0),
+              ),
+              KILOGRAM(
+                  title = "وزن کیلوگرم",
+                  unit = "کیلوگرم",
+                  totalLabel = "وزن کل خرید",
+                  usedLabel = "وزن مصرفی",
+                  presets = listOf(0.5, 1.0, 2.0, 5.0),
+              ),
+              COUNT(
+                  title = "عددی",
+                  unit = "عدد",
+                  totalLabel = "تعداد کل خرید",
+                  usedLabel = "تعداد مصرفی",
+                  presets = listOf(1.0, 6.0, 12.0, 24.0),
+              ),
+          }
+          
+          data class Ingredient(
+              val id: String = UUID.randomUUID().toString(),
+              val name: String,
+              val measureType: MeasureType,
+              val purchaseAmount: Double,
+              val totalPrice: Double,
+              val usedAmount: Double,
+          ) {
+              val usedCost: Double
+                  get() = if (purchaseAmount > 0.0) (totalPrice / purchaseAmount) * usedAmount else 0.0
+          }
+          
+          data class SavedGroup(
+              val id: String = UUID.randomUUID().toString(),
+              val name: String,
+              val ingredients: List<Ingredient> = emptyList(),
+              val updatedAt: Long = System.currentTimeMillis(),
+          )
+          
+          data class CalculationSettings(
+              val outputCount: Int = 1,
+              val profitPercent: Double = 30.0,
+              val packagingPerUnit: Double = 0.0,
+          )
+          
+          data class IngredientCost(
+              val ingredientId: String,
+              val name: String,
+              val cost: Double,
+          )
+          
+          data class CalculationResult(
+              val totalMaterialCost: Double,
+              val totalPackaging: Double,
+              val totalProductionCost: Double,
+              val costPerUnit: Double,
+              val profitPercent: Double,
+              val profitPerUnit: Double,
+              val sellingPricePerUnit: Double,
+              val totalProfit: Double,
+              val outputCount: Int,
+              val packagingPerUnit: Double,
+              val details: List<IngredientCost>,
+          )
+          
+          data class AppState(
+              val isLoading: Boolean = true,
+              val ingredients: List<Ingredient> = emptyList(),
+              val groups: List<SavedGroup> = emptyList(),
+              val activeGroupId: String? = null,
+              val groupName: String = "",
+              val settings: CalculationSettings = CalculationSettings(),
+              val result: CalculationResult? = null,
+              val selectedTab: AppTab = AppTab.INGREDIENTS,
+              val themeMode: ThemeMode = ThemeMode.SYSTEM,
+          ) {
+              val activeGroup: SavedGroup?
+                  get() = groups.firstOrNull { it.id == activeGroupId }
+          
+              val isDirty: Boolean
+                  get() {
+                      val active = activeGroup
+                      return if (active == null) {
+                          groupName.isNotBlank() || ingredients.isNotEmpty()
+                      } else {
+                          active.name != groupName.trim() || active.ingredients != ingredients
+                      }
+                  }
+          }
+          
+          data class ActionFeedback(
+              val success: Boolean,
+              val message: String,
+          ) {
+              companion object {
+                  fun success(message: String) = ActionFeedback(true, message)
+                  fun error(message: String) = ActionFeedback(false, message)
+              }
+          }
+          __SWEET_COST_FILE_006__
+
+          mkdir -p 'app/src/main/java/ir/sweetcost/app/ui'
+          cat > 'app/src/main/java/ir/sweetcost/app/ui/CakeApp.kt' <<'__SWEET_COST_FILE_007__'
+          @file:OptIn(androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
+          
+          package ir.sweetcost.app.ui
+          
+          import android.net.Uri
+          import androidx.activity.compose.rememberLauncherForActivityResult
+          import androidx.activity.result.contract.ActivityResultContracts
+          import androidx.compose.animation.AnimatedContent
+          import androidx.compose.animation.fadeIn
+          import androidx.compose.animation.fadeOut
+          import androidx.compose.animation.slideInHorizontally
+          import androidx.compose.animation.slideOutHorizontally
+          import androidx.compose.animation.togetherWith
+          import androidx.compose.foundation.background
+          import androidx.compose.foundation.layout.Box
+          import androidx.compose.foundation.layout.fillMaxSize
+          import androidx.compose.foundation.layout.fillMaxWidth
+          import androidx.compose.foundation.layout.height
+          import androidx.compose.foundation.layout.navigationBarsPadding
+          import androidx.compose.foundation.layout.padding
+          import androidx.compose.material3.AlertDialog
+          import androidx.compose.material3.Button
+          import androidx.compose.material3.ButtonDefaults
+          import androidx.compose.material3.LoadingIndicator
+          import androidx.compose.material3.MaterialTheme
+          import androidx.compose.material3.Scaffold
+          import androidx.compose.material3.SnackbarHost
+          import androidx.compose.material3.SnackbarHostState
+          import androidx.compose.material3.Text
+          import androidx.compose.material3.TextButton
+          import androidx.compose.runtime.Composable
+          import androidx.compose.runtime.getValue
+          import androidx.compose.runtime.mutableStateOf
+          import androidx.compose.runtime.remember
+          import androidx.compose.runtime.rememberCoroutineScope
+          import androidx.compose.runtime.setValue
+          import androidx.compose.ui.Alignment
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.graphics.Brush
+          import androidx.compose.ui.platform.LocalContext
+          import androidx.compose.ui.unit.IntOffset
+          import androidx.compose.ui.unit.dp
+          import ir.sweetcost.app.model.ActionFeedback
+          import ir.sweetcost.app.model.AppState
+          import ir.sweetcost.app.model.AppTab
+          import ir.sweetcost.app.model.Ingredient
+          import ir.sweetcost.app.model.SavedGroup
+          import kotlinx.coroutines.Dispatchers
+          import kotlinx.coroutines.launch
+          import kotlinx.coroutines.withContext
+          import java.text.SimpleDateFormat
+          import java.util.Date
+          import java.util.Locale
+          
+          private sealed interface AppSheet {
+              data class IngredientEditor(val ingredient: Ingredient?) : AppSheet
+              data object Calculation : AppSheet
+              data object CreateGroup : AppSheet
+              data class RenameGroup(val group: SavedGroup) : AppSheet
+          }
+          
+          private data class Confirmation(
+              val title: String,
+              val message: String,
+              val confirmLabel: String,
+              val destructive: Boolean = false,
+              val onConfirm: () -> Unit,
+          )
+          
+          @Composable
+          fun CakeApp(
+              state: AppState,
+              viewModel: CakeViewModel,
+          ) {
+              val context = LocalContext.current
+              val scope = rememberCoroutineScope()
+              val snackbarHostState = remember { SnackbarHostState() }
+              var sheet by remember { mutableStateOf<AppSheet?>(null) }
+              var confirmation by remember { mutableStateOf<Confirmation?>(null) }
+              var pendingExport by remember { mutableStateOf<String?>(null) }
+          
+              fun showFeedback(feedback: ActionFeedback) {
+                  scope.launch { snackbarHostState.showSnackbar(feedback.message) }
+              }
+          
+              val createDocument = rememberLauncherForActivityResult(
+                  contract = ActivityResultContracts.CreateDocument("application/json"),
+              ) { uri: Uri? ->
+                  val json = pendingExport
+                  pendingExport = null
+                  if (uri != null && json != null) {
+                      scope.launch {
+                          val feedback = runCatching {
+                              withContext(Dispatchers.IO) {
+                                  context.contentResolver.openOutputStream(uri, "wt")?.bufferedWriter()?.use {
+                                      it.write(json)
+                                  } ?: error("امکان نوشتن فایل وجود ندارد.")
+                              }
+                              ActionFeedback.success("فایل گروه‌ها ذخیره شد.")
+                          }.getOrElse { ActionFeedback.error(it.message ?: "ذخیره فایل ناموفق بود.") }
+                          showFeedback(feedback)
+                      }
+                  }
+              }
+          
+              val openDocument = rememberLauncherForActivityResult(
+                  contract = ActivityResultContracts.OpenDocument(),
+              ) { uri: Uri? ->
+                  if (uri != null) {
+                      scope.launch {
+                          val feedback = runCatching {
+                              val text = withContext(Dispatchers.IO) {
+                                  context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { reader ->
+                                      reader.readText().also {
+                                          require(it.length <= 5_000_000) { "حجم فایل بیش از حد مجاز است." }
+                                      }
+                                  } ?: error("امکان خواندن فایل وجود ندارد.")
+                              }
+                              viewModel.importGroups(text)
+                          }.getOrElse { ActionFeedback.error(it.message ?: "خواندن فایل ناموفق بود.") }
+                          showFeedback(feedback)
+                      }
+                  }
+              }
+          
+              fun requestLoad(group: SavedGroup) {
+                  val load = {
+                      showFeedback(viewModel.loadGroup(group.id))
+                      confirmation = null
+                  }
+                  if (state.isDirty && state.activeGroupId != group.id) {
+                      confirmation = Confirmation(
+                          title = "بارگذاری گروه",
+                          message = "تغییرات ذخیره‌نشده فعلی جایگزین می‌شوند. ادامه می‌دهید؟",
+                          confirmLabel = "بارگذاری",
+                          onConfirm = load,
+                      )
+                  } else load()
+              }
+          
+              fun requestCreateGroup() {
+                  val openSheet = {
+                      confirmation = null
+                      sheet = AppSheet.CreateGroup
+                  }
+                  if (state.isDirty) {
+                      confirmation = Confirmation(
+                          title = "ایجاد گروه جدید",
+                          message = "تغییرات ذخیره‌نشده فعلی پاک می‌شوند. ابتدا آن‌ها را ذخیره کنید یا ادامه دهید.",
+                          confirmLabel = "ادامه",
+                          onConfirm = openSheet,
+                      )
+                  } else openSheet()
+              }
+          
+              Scaffold(
+                  modifier = Modifier.fillMaxSize(),
+                  topBar = {
+                      AppHeader(
+                          tab = state.selectedTab,
+                          themeMode = state.themeMode,
+                          onCycleTheme = viewModel::cycleTheme,
+                      )
+                  },
+                  snackbarHost = {
+                      SnackbarHost(
+                          hostState = snackbarHostState,
+                          modifier = Modifier
+                              .navigationBarsPadding()
+                              .padding(bottom = 96.dp),
+                      )
+                  },
+              ) { innerPadding ->
+                  Box(
+                      modifier = Modifier
+                          .fillMaxSize()
+                          .padding(innerPadding),
+                  ) {
+                      if (state.isLoading) {
+                          LoadingIndicator(modifier = Modifier.align(Alignment.Center))
+                      } else {
+                          PageContent(
+                              state = state,
+                              onGroupNameChange = viewModel::updateGroupName,
+                              onSaveGroup = { showFeedback(viewModel.saveCurrentGroup()) },
+                              onEditIngredient = { sheet = AppSheet.IngredientEditor(it) },
+                              onDeleteIngredient = { ingredient ->
+                                  confirmation = Confirmation(
+                                      title = "حذف ماده",
+                                      message = "آیا «${ingredient.name}» حذف شود؟",
+                                      confirmLabel = "حذف",
+                                      destructive = true,
+                                      onConfirm = {
+                                          showFeedback(viewModel.deleteIngredient(ingredient.id))
+                                          confirmation = null
+                                      },
+                                  )
+                              },
+                              onCreateGroup = ::requestCreateGroup,
+                              onLoadGroup = ::requestLoad,
+                              onRenameGroup = { sheet = AppSheet.RenameGroup(it) },
+                              onCopyGroup = { showFeedback(viewModel.copyGroup(it.id)) },
+                              onDeleteGroup = { group ->
+                                  confirmation = Confirmation(
+                                      title = "حذف گروه",
+                                      message = "آیا گروه «${group.name}» حذف شود؟",
+                                      confirmLabel = "حذف",
+                                      destructive = true,
+                                      onConfirm = {
+                                          showFeedback(viewModel.deleteGroup(group.id))
+                                          confirmation = null
+                                      },
+                                  )
+                              },
+                              onClearGroups = {
+                                  confirmation = Confirmation(
+                                      title = "حذف همه گروه‌ها",
+                                      message = "این کار قابل بازگشت نیست. همه گروه‌های ذخیره‌شده حذف شوند؟",
+                                      confirmLabel = "حذف همه",
+                                      destructive = true,
+                                      onConfirm = {
+                                          showFeedback(viewModel.clearGroups())
+                                          confirmation = null
+                                      },
+                                  )
+                              },
+                              onExportGroups = {
+                                  val feedback = viewModel.exportGroups()
+                                  if (feedback.success) {
+                                      pendingExport = feedback.message
+                                      val date = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+                                      createDocument.launch("sweet-groups-$date.json")
+                                  } else showFeedback(feedback)
+                              },
+                              onImportGroups = { openDocument.launch(arrayOf("application/json", "text/json")) },
+                          )
+                      }
+          
+                      Box(
+                          modifier = Modifier
+                              .align(Alignment.BottomCenter)
+                              .fillMaxWidth()
+                              .height(156.dp)
+                              .background(
+                                  Brush.verticalGradient(
+                                      colors = listOf(
+                                          MaterialTheme.colorScheme.surface.copy(alpha = 0f),
+                                          MaterialTheme.colorScheme.surface.copy(alpha = 0.90f),
+                                          MaterialTheme.colorScheme.surface,
+                                      ),
+                                  ),
+                              ),
+                      )
+          
+                      FloatingNavigationDock(
+                          state = state,
+                          onTabSelected = viewModel::selectTab,
+                          onAddIngredient = { sheet = AppSheet.IngredientEditor(null) },
+                          onCalculate = { sheet = AppSheet.Calculation },
+                          modifier = Modifier
+                              .align(Alignment.BottomCenter)
+                              .navigationBarsPadding()
+                              .padding(horizontal = 8.dp, vertical = 12.dp),
+                      )
+                  }
+              }
+          
+              when (val currentSheet = sheet) {
+                  is AppSheet.IngredientEditor -> IngredientBottomSheet(
+                      editing = currentSheet.ingredient,
+                      onDismiss = { sheet = null },
+                      onSubmit = { ingredient ->
+                          if (currentSheet.ingredient == null) viewModel.addIngredient(ingredient)
+                          else viewModel.updateIngredient(ingredient)
+                      },
+                      onFeedback = ::showFeedback,
+                  )
+                  AppSheet.Calculation -> CalculationBottomSheet(
+                      initial = state.settings,
+                      onDismiss = { sheet = null },
+                      onCalculate = viewModel::calculate,
+                      onFeedback = ::showFeedback,
+                  )
+                  AppSheet.CreateGroup -> GroupNameBottomSheet(
+                      title = "ایجاد گروه جدید",
+                      actionLabel = "ایجاد",
+                      onDismiss = { sheet = null },
+                      onSubmit = viewModel::createGroup,
+                      onFeedback = ::showFeedback,
+                  )
+                  is AppSheet.RenameGroup -> GroupNameBottomSheet(
+                      title = "تغییر نام گروه",
+                      initialName = currentSheet.group.name,
+                      actionLabel = "ذخیره نام",
+                      onDismiss = { sheet = null },
+                      onSubmit = { viewModel.renameGroup(currentSheet.group.id, it) },
+                      onFeedback = ::showFeedback,
+                  )
+                  null -> Unit
+              }
+          
+              confirmation?.let { dialog ->
+                  AlertDialog(
+                      onDismissRequest = { confirmation = null },
+                      title = { Text(dialog.title) },
+                      text = { Text(dialog.message) },
+                      confirmButton = {
+                          Button(
+                              onClick = dialog.onConfirm,
+                              colors = if (dialog.destructive) {
+                                  ButtonDefaults.buttonColors(
+                                      containerColor = MaterialTheme.colorScheme.error,
+                                      contentColor = MaterialTheme.colorScheme.onError,
+                                  )
+                              } else ButtonDefaults.buttonColors(),
+                          ) {
+                              Text(dialog.confirmLabel)
+                          }
+                      },
+                      dismissButton = {
+                          TextButton(onClick = { confirmation = null }) { Text("انصراف") }
+                      },
+                  )
+              }
+          }
+          
+          @Composable
+          private fun PageContent(
+              state: AppState,
+              onGroupNameChange: (String) -> Unit,
+              onSaveGroup: () -> Unit,
+              onEditIngredient: (Ingredient) -> Unit,
+              onDeleteIngredient: (Ingredient) -> Unit,
+              onCreateGroup: () -> Unit,
+              onLoadGroup: (SavedGroup) -> Unit,
+              onRenameGroup: (SavedGroup) -> Unit,
+              onCopyGroup: (SavedGroup) -> Unit,
+              onDeleteGroup: (SavedGroup) -> Unit,
+              onClearGroups: () -> Unit,
+              onExportGroups: () -> Unit,
+              onImportGroups: () -> Unit,
+          ) {
+              val spatial = MaterialTheme.motionScheme.defaultSpatialSpec<IntOffset>()
+              val effects = MaterialTheme.motionScheme.fastEffectsSpec<Float>()
+              AnimatedContent(
+                  targetState = state.selectedTab,
+                  modifier = Modifier.fillMaxSize(),
+                  transitionSpec = {
+                      val direction = if (targetState.ordinal >= initialState.ordinal) 1 else -1
+                      (slideInHorizontally(spatial) { width -> direction * width / 8 } + fadeIn(effects)) togetherWith
+                          (slideOutHorizontally(spatial) { width -> -direction * width / 8 } + fadeOut(effects))
+                  },
+                  label = "page-transition",
+              ) { tab ->
+                  when (tab) {
+                      AppTab.INGREDIENTS -> IngredientsScreen(
+                          state = state,
+                          onGroupNameChange = onGroupNameChange,
+                          onSaveGroup = onSaveGroup,
+                          onEditIngredient = onEditIngredient,
+                          onDeleteIngredient = onDeleteIngredient,
+                      )
+                      AppTab.GROUPS -> GroupsScreen(
+                          state = state,
+                          onCreateGroup = onCreateGroup,
+                          onLoadGroup = onLoadGroup,
+                          onRenameGroup = onRenameGroup,
+                          onCopyGroup = onCopyGroup,
+                          onDeleteGroup = onDeleteGroup,
+                          onClearGroups = onClearGroups,
+                          onExportGroups = onExportGroups,
+                          onImportGroups = onImportGroups,
+                      )
+                      AppTab.RESULT -> ResultScreen(result = state.result)
+                  }
+              }
+          }
+          __SWEET_COST_FILE_007__
+
+          mkdir -p 'app/src/main/java/ir/sweetcost/app/ui'
+          cat > 'app/src/main/java/ir/sweetcost/app/ui/CakeViewModel.kt' <<'__SWEET_COST_FILE_008__'
+          package ir.sweetcost.app.ui
+          
+          import android.app.Application
+          import androidx.lifecycle.AndroidViewModel
+          import androidx.lifecycle.viewModelScope
+          import ir.sweetcost.app.data.AppRepository
+          import ir.sweetcost.app.model.ActionFeedback
+          import ir.sweetcost.app.model.AppState
+          import ir.sweetcost.app.model.AppTab
+          import ir.sweetcost.app.model.CalculationResult
+          import ir.sweetcost.app.model.CalculationSettings
+          import ir.sweetcost.app.model.Ingredient
+          import ir.sweetcost.app.model.IngredientCost
+          import ir.sweetcost.app.model.SavedGroup
+          import kotlinx.coroutines.channels.Channel
+          import kotlinx.coroutines.flow.MutableStateFlow
+          import kotlinx.coroutines.flow.StateFlow
+          import kotlinx.coroutines.flow.asStateFlow
+          import kotlinx.coroutines.flow.first
+          import kotlinx.coroutines.launch
+          import java.util.UUID
+          
+          class CakeViewModel(application: Application) : AndroidViewModel(application) {
+              private val repository = AppRepository(application.applicationContext)
+              private val _state = MutableStateFlow(AppState())
+              val state: StateFlow<AppState> = _state.asStateFlow()
+              private val saveQueue = Channel<AppState>(capacity = Channel.CONFLATED)
+          
+              init {
+                  viewModelScope.launch {
+                      _state.value = repository.state.first()
+                  }
+                  viewModelScope.launch {
+                      for (snapshot in saveQueue) repository.save(snapshot)
+                  }
+              }
+          
+              fun selectTab(tab: AppTab) = mutate { copy(selectedTab = tab) }
+          
+              fun cycleTheme() = mutate { copy(themeMode = themeMode.next()) }
+          
+              fun updateGroupName(name: String) = mutate { copy(groupName = name.take(80)) }
+          
+              fun addIngredient(ingredient: Ingredient): ActionFeedback {
+                  validateIngredient(ingredient)?.let { return ActionFeedback.error(it) }
+                  mutate {
+                      copy(
+                          ingredients = ingredients + ingredient,
+                          result = null,
+                          selectedTab = AppTab.INGREDIENTS,
+                      )
+                  }
+                  return ActionFeedback.success("«${ingredient.name}» اضافه شد.")
+              }
+          
+              fun updateIngredient(ingredient: Ingredient): ActionFeedback {
+                  validateIngredient(ingredient)?.let { return ActionFeedback.error(it) }
+                  if (_state.value.ingredients.none { it.id == ingredient.id }) {
+                      return ActionFeedback.error("ماده موردنظر پیدا نشد.")
+                  }
+                  mutate {
+                      copy(
+                          ingredients = ingredients.map { current ->
+                              if (current.id == ingredient.id) ingredient else current
+                          },
+                          result = null,
+                      )
+                  }
+                  return ActionFeedback.success("ماده ویرایش شد.")
+              }
+          
+              fun deleteIngredient(id: String): ActionFeedback {
+                  val ingredient = _state.value.ingredients.firstOrNull { it.id == id }
+                      ?: return ActionFeedback.error("ماده موردنظر پیدا نشد.")
+                  mutate {
+                      val updated = ingredients.filterNot { it.id == id }
+                      copy(ingredients = updated, result = null)
+                  }
+                  return ActionFeedback.success("«${ingredient.name}» حذف شد.")
+              }
+          
+              /** Upsert behavior: an opened saved group is updated directly; a draft becomes a new group. */
+              fun saveCurrentGroup(): ActionFeedback {
+                  val snapshot = _state.value
+                  val name = snapshot.groupName.trim()
+                  if (name.isBlank()) return ActionFeedback.error("نام گروه را وارد کنید.")
+          
+                  val activeId = snapshot.activeGroupId
+                  val now = System.currentTimeMillis()
+                  return if (activeId != null && snapshot.groups.any { it.id == activeId }) {
+                      mutate {
+                          copy(
+                              groupName = name,
+                              groups = groups.map { group ->
+                                  if (group.id == activeId) {
+                                      group.copy(name = name, ingredients = ingredients, updatedAt = now)
+                                  } else group
+                              },
+                          )
+                      }
+                      ActionFeedback.success("گروه «$name» بروزرسانی شد.")
+                  } else {
+                      val group = SavedGroup(name = name, ingredients = snapshot.ingredients, updatedAt = now)
+                      mutate {
+                          copy(
+                              groupName = name,
+                              activeGroupId = group.id,
+                              groups = groups + group,
+                          )
+                      }
+                      ActionFeedback.success("گروه «$name» ذخیره شد.")
+                  }
+              }
+          
+              fun createGroup(nameInput: String): ActionFeedback {
+                  val name = nameInput.trim()
+                  if (name.isBlank()) return ActionFeedback.error("نام گروه را وارد کنید.")
+                  if (_state.value.groups.any { it.name.equals(name, ignoreCase = true) }) {
+                      return ActionFeedback.error("گروهی با این نام وجود دارد.")
+                  }
+                  val group = SavedGroup(name = name)
+                  mutate {
+                      copy(
+                          groups = groups + group,
+                          activeGroupId = group.id,
+                          groupName = name,
+                          ingredients = emptyList(),
+                          result = null,
+                          selectedTab = AppTab.INGREDIENTS,
+                      )
+                  }
+                  return ActionFeedback.success("گروه «$name» ایجاد شد.")
+              }
+          
+              fun startNewDraft() {
+                  mutate {
+                      copy(
+                          activeGroupId = null,
+                          groupName = "",
+                          ingredients = emptyList(),
+                          result = null,
+                          selectedTab = AppTab.INGREDIENTS,
+                      )
+                  }
+              }
+          
+              fun loadGroup(id: String): ActionFeedback {
+                  val group = _state.value.groups.firstOrNull { it.id == id }
+                      ?: return ActionFeedback.error("گروه موردنظر پیدا نشد.")
+                  mutate {
+                      copy(
+                          activeGroupId = group.id,
+                          groupName = group.name,
+                          ingredients = group.ingredients,
+                          result = null,
+                          selectedTab = AppTab.INGREDIENTS,
+                      )
+                  }
+                  return ActionFeedback.success("گروه «${group.name}» بارگذاری شد.")
+              }
+          
+              fun renameGroup(id: String, nameInput: String): ActionFeedback {
+                  val name = nameInput.trim()
+                  if (name.isBlank()) return ActionFeedback.error("نام گروه را وارد کنید.")
+                  if (_state.value.groups.any { it.id != id && it.name.equals(name, ignoreCase = true) }) {
+                      return ActionFeedback.error("گروهی با این نام وجود دارد.")
+                  }
+                  val target = _state.value.groups.firstOrNull { it.id == id }
+                      ?: return ActionFeedback.error("گروه موردنظر پیدا نشد.")
+                  mutate {
+                      copy(
+                          groups = groups.map { if (it.id == id) it.copy(name = name, updatedAt = System.currentTimeMillis()) else it },
+                          groupName = if (activeGroupId == id) name else groupName,
+                      )
+                  }
+                  return ActionFeedback.success("نام «${target.name}» به «$name» تغییر کرد.")
+              }
+          
+              fun copyGroup(id: String): ActionFeedback {
+                  val source = _state.value.groups.firstOrNull { it.id == id }
+                      ?: return ActionFeedback.error("گروه موردنظر پیدا نشد.")
+                  val copy = source.copy(
+                      id = UUID.randomUUID().toString(),
+                      name = "${source.name} (کپی)",
+                      ingredients = source.ingredients.map { it.copy(id = UUID.randomUUID().toString()) },
+                      updatedAt = System.currentTimeMillis(),
+                  )
+                  mutate { copy(groups = groups + copy) }
+                  return ActionFeedback.success("یک کپی از گروه ساخته شد.")
+              }
+          
+              fun deleteGroup(id: String): ActionFeedback {
+                  val group = _state.value.groups.firstOrNull { it.id == id }
+                      ?: return ActionFeedback.error("گروه موردنظر پیدا نشد.")
+                  mutate {
+                      copy(
+                          groups = groups.filterNot { it.id == id },
+                          activeGroupId = if (activeGroupId == id) null else activeGroupId,
+                      )
+                  }
+                  return ActionFeedback.success("گروه «${group.name}» حذف شد.")
+              }
+          
+              fun clearGroups(): ActionFeedback {
+                  if (_state.value.groups.isEmpty()) return ActionFeedback.error("گروهی برای حذف وجود ندارد.")
+                  mutate { copy(groups = emptyList(), activeGroupId = null) }
+                  return ActionFeedback.success("همه گروه‌های ذخیره‌شده حذف شدند.")
+              }
+          
+              fun calculate(settings: CalculationSettings): ActionFeedback {
+                  val ingredients = _state.value.ingredients
+                  if (ingredients.isEmpty()) return ActionFeedback.error("حداقل یک ماده اولیه اضافه کنید.")
+                  if (settings.outputCount <= 0) return ActionFeedback.error("تعداد خروجی باید بیشتر از صفر باشد.")
+                  if (!settings.profitPercent.isFinite() || settings.profitPercent < 0.0) {
+                      return ActionFeedback.error("درصد سود معتبر وارد کنید.")
+                  }
+                  if (!settings.packagingPerUnit.isFinite() || settings.packagingPerUnit < 0.0) {
+                      return ActionFeedback.error("هزینه بسته‌بندی معتبر وارد کنید.")
+                  }
+          
+                  val details = ingredients.map {
+                      IngredientCost(ingredientId = it.id, name = it.name, cost = it.usedCost)
+                  }
+                  val materialCost = details.sumOf { it.cost }
+                  val totalPackaging = settings.packagingPerUnit * settings.outputCount
+                  val totalProduction = materialCost + totalPackaging
+                  val costPerUnit = totalProduction / settings.outputCount
+                  val profitPerUnit = costPerUnit * settings.profitPercent / 100.0
+                  val sellingPrice = costPerUnit + profitPerUnit
+                  val totalProfit = profitPerUnit * settings.outputCount
+                  val result = CalculationResult(
+                      totalMaterialCost = materialCost,
+                      totalPackaging = totalPackaging,
+                      totalProductionCost = totalProduction,
+                      costPerUnit = costPerUnit,
+                      profitPercent = settings.profitPercent,
+                      profitPerUnit = profitPerUnit,
+                      sellingPricePerUnit = sellingPrice,
+                      totalProfit = totalProfit,
+                      outputCount = settings.outputCount,
+                      packagingPerUnit = settings.packagingPerUnit,
+                      details = details,
+                  )
+                  mutate {
+                      copy(settings = settings, result = result, selectedTab = AppTab.RESULT)
+                  }
+                  return ActionFeedback.success("محاسبه با موفقیت انجام شد.")
+              }
+          
+              fun exportGroups(): ActionFeedback = if (_state.value.groups.isEmpty()) {
+                  ActionFeedback.error("گروهی برای خروجی گرفتن وجود ندارد.")
+              } else {
+                  ActionFeedback.success(repository.exportGroups(_state.value.groups))
+              }
+          
+              fun importGroups(raw: String): ActionFeedback = runCatching {
+                  val imported = repository.importGroups(raw)
+                  if (imported.isEmpty()) return ActionFeedback.error("گروه معتبری در فایل پیدا نشد.")
+          
+                  val existingIds = _state.value.groups.mapTo(mutableSetOf()) { it.id }
+                  val normalized = imported.map { group ->
+                      if (existingIds.add(group.id)) group
+                      else group.copy(id = UUID.randomUUID().toString())
+                  }
+                  mutate { copy(groups = groups + normalized) }
+                  ActionFeedback.success("${normalized.size} گروه وارد شد.")
+              }.getOrElse { error ->
+                  ActionFeedback.error(error.message ?: "خواندن فایل با خطا روبرو شد.")
+              }
+          
+              private fun validateIngredient(ingredient: Ingredient): String? = when {
+                  ingredient.name.trim().isBlank() -> "نام ماده را وارد کنید."
+                  ingredient.name.length > 80 -> "نام ماده بیش از حد طولانی است."
+                  !ingredient.purchaseAmount.isFinite() || ingredient.purchaseAmount <= 0.0 ->
+                      "مقدار کل خرید باید بیشتر از صفر باشد."
+                  !ingredient.totalPrice.isFinite() || ingredient.totalPrice < 0.0 ->
+                      "قیمت کل معتبر وارد کنید."
+                  !ingredient.usedAmount.isFinite() || ingredient.usedAmount < 0.0 ->
+                      "مقدار مصرفی معتبر وارد کنید."
+                  ingredient.usedAmount > ingredient.purchaseAmount ->
+                      "مقدار مصرفی نمی‌تواند از مقدار کل بیشتر باشد."
+                  else -> null
+              }
+          
+              private inline fun mutate(transform: AppState.() -> AppState) {
+                  val updated = _state.value.transform().copy(isLoading = false)
+                  _state.value = updated
+                  saveQueue.trySend(updated)
+              }
+          }
+          __SWEET_COST_FILE_008__
+
+          mkdir -p 'app/src/main/java/ir/sweetcost/app/ui'
+          cat > 'app/src/main/java/ir/sweetcost/app/ui/Components.kt' <<'__SWEET_COST_FILE_009__'
+          package ir.sweetcost.app.ui
+          
+          import androidx.compose.animation.AnimatedContent
+          import androidx.compose.animation.core.Animatable
+          import androidx.compose.animation.fadeIn
+          import androidx.compose.animation.fadeOut
+          import androidx.compose.animation.slideInVertically
+          import androidx.compose.animation.slideOutVertically
+          import androidx.compose.animation.togetherWith
+          import androidx.compose.foundation.layout.Arrangement
+          import androidx.compose.foundation.layout.Box
+          import androidx.compose.foundation.layout.Column
+          import androidx.compose.foundation.layout.Row
+          import androidx.compose.foundation.layout.Spacer
+          import androidx.compose.foundation.layout.fillMaxSize
+          import androidx.compose.foundation.layout.fillMaxWidth
+          import androidx.compose.foundation.layout.height
+          import androidx.compose.foundation.layout.padding
+          import androidx.compose.foundation.layout.size
+          import androidx.compose.foundation.layout.width
+          import androidx.compose.foundation.layout.wrapContentWidth
+          import androidx.compose.foundation.shape.CircleShape
+          import androidx.compose.foundation.text.KeyboardActions
+          import androidx.compose.foundation.text.KeyboardOptions
+          import androidx.compose.material.icons.Icons
+          import androidx.compose.material.icons.filled.Add
+          import androidx.compose.material.icons.filled.BrightnessAuto
+          import androidx.compose.material.icons.filled.DarkMode
+          import androidx.compose.material.icons.filled.Edit
+          import androidx.compose.material.icons.filled.LightMode
+          import androidx.compose.material.icons.filled.Save
+          import androidx.compose.material.icons.outlined.Folder
+          import androidx.compose.material.icons.outlined.Inventory2
+          import androidx.compose.material.icons.outlined.PieChartOutline
+          import androidx.compose.material3.Badge
+          import androidx.compose.material3.BadgedBox
+          import androidx.compose.material3.ExperimentalMaterial3Api
+          import androidx.compose.material3.FilledIconButton
+          import androidx.compose.material3.FilledIconToggleButton
+          import androidx.compose.material3.FloatingActionButton
+          import androidx.compose.material3.FloatingToolbarDefaults
+          import androidx.compose.material3.FloatingToolbarHorizontalFabPosition
+          import androidx.compose.material3.HorizontalFloatingToolbar
+          import androidx.compose.material3.Icon
+          import androidx.compose.material3.IconButton
+          import androidx.compose.material3.MaterialTheme
+          import androidx.compose.material3.OutlinedTextField
+          import androidx.compose.material3.Scaffold
+          import androidx.compose.material3.Text
+          import androidx.compose.material3.TopAppBar
+          import androidx.compose.material3.TopAppBarDefaults
+          import androidx.compose.runtime.Composable
+          import androidx.compose.runtime.LaunchedEffect
+          import androidx.compose.runtime.CompositionLocalProvider
+          import androidx.compose.runtime.getValue
+          import androidx.compose.runtime.remember
+          import androidx.compose.ui.Alignment
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.focus.FocusRequester
+          import androidx.compose.ui.focus.focusRequester
+          import androidx.compose.ui.graphics.vector.ImageVector
+          import androidx.compose.ui.platform.LocalLayoutDirection
+          import androidx.compose.ui.semantics.Role
+          import androidx.compose.ui.semantics.role
+          import androidx.compose.ui.semantics.semantics
+          import androidx.compose.ui.text.font.FontWeight
+          import androidx.compose.ui.text.input.ImeAction
+          import androidx.compose.ui.text.input.KeyboardType
+          import androidx.compose.ui.text.style.TextOverflow
+          import androidx.compose.ui.unit.IntOffset
+          import androidx.compose.ui.unit.LayoutDirection
+          import androidx.compose.ui.unit.dp
+          import ir.sweetcost.app.model.AppState
+          import ir.sweetcost.app.model.AppTab
+          import ir.sweetcost.app.model.ThemeMode
+          import ir.sweetcost.app.util.formatMoney
+          import ir.sweetcost.app.util.formatNumber
+          
+          @OptIn(ExperimentalMaterial3Api::class)
+          @Composable
+          fun AppHeader(
+              tab: AppTab,
+              themeMode: ThemeMode,
+              onCycleTheme: () -> Unit,
+          ) {
+              val spatial = MaterialTheme.motionScheme.fastSpatialSpec<IntOffset>()
+              val effects = MaterialTheme.motionScheme.fastEffectsSpec<Float>()
+              TopAppBar(
+                  title = {
+                      AnimatedContent(
+                          targetState = tab.title,
+                          transitionSpec = {
+                              (fadeIn(effects) + slideInVertically(spatial) { it / 3 }) togetherWith
+                                  (fadeOut(effects) + slideOutVertically(spatial) { -it / 3 })
+                          },
+                          label = "header-title",
+                      ) { title ->
+                          Text(
+                              text = title,
+                              style = MaterialTheme.typography.titleLarge,
+                              maxLines = 1,
+                              overflow = TextOverflow.Ellipsis,
+                          )
+                      }
+                  },
+                  actions = {
+                      IconButton(onClick = onCycleTheme) {
+                          Icon(
+                              imageVector = when (themeMode) {
+                                  ThemeMode.SYSTEM -> Icons.Filled.BrightnessAuto
+                                  ThemeMode.LIGHT -> Icons.Filled.LightMode
+                                  ThemeMode.DARK -> Icons.Filled.DarkMode
+                              },
+                              contentDescription = when (themeMode) {
+                                  ThemeMode.SYSTEM -> "تم خودکار؛ تغییر به روشن"
+                                  ThemeMode.LIGHT -> "تم روشن؛ تغییر به تیره"
+                                  ThemeMode.DARK -> "تم تیره؛ تغییر به خودکار"
+                              },
+                          )
+                      }
+                  },
+                  colors = TopAppBarDefaults.topAppBarColors(
+                      containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
+                  ),
+              )
+          }
+          
+          /**
+           * Physical layout is deliberately LTR only for positioning: calculate on the left, a fixed gap,
+           * navigation in the center, and the add FAB integrated at the right edge of the floating toolbar.
+           */
+          @Composable
+          fun FloatingNavigationDock(
+              state: AppState,
+              onTabSelected: (AppTab) -> Unit,
+              onAddIngredient: () -> Unit,
+              onCalculate: () -> Unit,
+              modifier: Modifier = Modifier,
+          ) {
+              CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                  Row(
+                      modifier = modifier.wrapContentWidth(),
+                      verticalAlignment = Alignment.CenterVertically,
+                      horizontalArrangement = Arrangement.Center,
+                  ) {
+                      FloatingActionButton(
+                          onClick = onCalculate,
+                          modifier = Modifier.size(64.dp),
+                          shape = CircleShape,
+                          containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                          contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                      ) {
+                          Icon(Icons.Filled.Add, contentDescription = "باز کردن تنظیمات محاسبه")
+                      }
+                      Spacer(Modifier.width(12.dp))
+                      HorizontalFloatingToolbar(
+                          expanded = true,
+                          floatingActionButton = {
+                              FloatingToolbarDefaults.VibrantFloatingActionButton(onClick = onAddIngredient) {
+                                  Icon(Icons.Filled.Add, contentDescription = "افزودن ماده جدید")
+                              }
+                          },
+                          floatingActionButtonPosition = FloatingToolbarHorizontalFabPosition.End,
+                          colors = FloatingToolbarDefaults.vibrantFloatingToolbarColors(),
+                          animationSpec = MaterialTheme.motionScheme.fastSpatialSpec(),
+                      ) {
+                          NavigationIcon(
+                              icon = Icons.Outlined.Inventory2,
+                              description = "مواد اولیه",
+                              checked = state.selectedTab == AppTab.INGREDIENTS,
+                              badgeCount = state.ingredients.size,
+                              onClick = { onTabSelected(AppTab.INGREDIENTS) },
+                          )
+                          NavigationIcon(
+                              icon = Icons.Outlined.Folder,
+                              description = "گروه‌های ذخیره‌شده",
+                              checked = state.selectedTab == AppTab.GROUPS,
+                              badgeCount = state.groups.size,
+                              onClick = { onTabSelected(AppTab.GROUPS) },
+                          )
+                          NavigationIcon(
+                              icon = Icons.Outlined.PieChartOutline,
+                              description = "نتیجه محاسبه",
+                              checked = state.selectedTab == AppTab.RESULT,
+                              onClick = { onTabSelected(AppTab.RESULT) },
+                          )
+                      }
+                  }
+              }
+          }
+          
+          @Composable
+          private fun NavigationIcon(
+              icon: ImageVector,
+              description: String,
+              checked: Boolean,
+              badgeCount: Int? = null,
+              onClick: () -> Unit,
+          ) {
+              FilledIconToggleButton(
+                  checked = checked,
+                  onCheckedChange = { onClick() },
+                  modifier = Modifier
+                      .size(48.dp)
+                      .semantics { role = Role.Tab },
+              ) {
+                  if (badgeCount != null && badgeCount > 0) {
+                      BadgedBox(
+                          badge = {
+                              Badge { Text(formatNumber(badgeCount.toDouble(), 0)) }
+                          },
+                      ) {
+                          Icon(icon, contentDescription = description)
+                      }
+                  } else {
+                      Icon(icon, contentDescription = description)
+                  }
+              }
+          }
+          
+          @Composable
+          fun GroupNameBar(
+              value: String,
+              isDirty: Boolean,
+              onValueChange: (String) -> Unit,
+              onSave: () -> Unit,
+          ) {
+              val focusRequester = remember { FocusRequester() }
+              Row(
+                  modifier = Modifier.fillMaxWidth(),
+                  verticalAlignment = Alignment.CenterVertically,
+                  horizontalArrangement = Arrangement.spacedBy(8.dp),
+              ) {
+                  OutlinedTextField(
+                      value = value,
+                      onValueChange = onValueChange,
+                      modifier = Modifier
+                          .weight(1f)
+                          .focusRequester(focusRequester),
+                      label = { Text("نام گروه") },
+                      placeholder = { Text("مثلاً کیک وانیلی") },
+                      supportingText = {
+                          Text(if (isDirty) "تغییرات ذخیره‌نشده" else "گروه ذخیره‌شده و همگام است")
+                      },
+                      singleLine = true,
+                      keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                      keyboardActions = KeyboardActions(onDone = { onSave() }),
+                  )
+                  IconButton(onClick = { focusRequester.requestFocus() }) {
+                      Icon(Icons.Filled.Edit, contentDescription = "ویرایش نام گروه")
+                  }
+                  FilledIconButton(onClick = onSave) {
+                      Icon(Icons.Filled.Save, contentDescription = "ذخیره یا بروزرسانی گروه")
+                  }
+              }
+          }
+          
+          @Composable
+          fun NumericField(
+              value: String,
+              onValueChange: (String) -> Unit,
+              label: String,
+              modifier: Modifier = Modifier,
+              suffix: String? = null,
+              isError: Boolean = false,
+              supportingText: String? = null,
+              imeAction: ImeAction = ImeAction.Next,
+              onDone: (() -> Unit)? = null,
+          ) {
+              OutlinedTextField(
+                  value = value,
+                  onValueChange = { input ->
+                      onValueChange(input.filter { char ->
+                          char.isDigit() || char in listOf('.', ',', '٫', '٬', '،', ' ')
+                      })
+                  },
+                  modifier = modifier,
+                  label = { Text(label) },
+                  suffix = suffix?.let { unit -> ({ Text(unit) }) },
+                  isError = isError,
+                  supportingText = supportingText?.let { text -> ({ Text(text) }) },
+                  singleLine = true,
+                  keyboardOptions = KeyboardOptions(
+                      keyboardType = KeyboardType.Decimal,
+                      imeAction = imeAction,
+                  ),
+                  keyboardActions = KeyboardActions(onDone = { onDone?.invoke() }),
+              )
+          }
+          
+          @Composable
+          fun EmptyState(
+              icon: ImageVector,
+              title: String,
+              description: String,
+              modifier: Modifier = Modifier,
+          ) {
+              Column(
+                  modifier = modifier
+                      .fillMaxWidth()
+                      .padding(horizontal = 24.dp, vertical = 44.dp),
+                  horizontalAlignment = Alignment.CenterHorizontally,
+                  verticalArrangement = Arrangement.Center,
+              ) {
+                  Icon(
+                      imageVector = icon,
+                      contentDescription = null,
+                      modifier = Modifier.size(64.dp),
+                      tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.45f),
+                  )
+                  Spacer(Modifier.height(16.dp))
+                  Text(title, style = MaterialTheme.typography.titleMedium)
+                  Spacer(Modifier.height(6.dp))
+                  Text(
+                      description,
+                      style = MaterialTheme.typography.bodyMedium,
+                      color = MaterialTheme.colorScheme.onSurfaceVariant,
+                  )
+              }
+          }
+          
+          @Composable
+          fun AnimatedMoney(
+              value: Double,
+              modifier: Modifier = Modifier,
+              emphasize: Boolean = false,
+          ) {
+              val animated = remember { Animatable(0f) }
+              val spec = MaterialTheme.motionScheme.defaultSpatialSpec<Float>()
+              LaunchedEffect(value) {
+                  animated.animateTo(value.toFloat(), animationSpec = spec)
+              }
+              Text(
+                  text = formatMoney(animated.value.toDouble()),
+                  modifier = modifier,
+                  style = if (emphasize) MaterialTheme.typography.titleLarge else MaterialTheme.typography.titleMedium,
+                  fontWeight = if (emphasize) FontWeight.ExtraBold else FontWeight.Bold,
+                  color = if (emphasize) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+              )
+          }
+          __SWEET_COST_FILE_009__
+
+          mkdir -p 'app/src/main/java/ir/sweetcost/app/ui'
+          cat > 'app/src/main/java/ir/sweetcost/app/ui/GroupsScreen.kt' <<'__SWEET_COST_FILE_010__'
+          package ir.sweetcost.app.ui
+          
+          import androidx.compose.foundation.layout.Arrangement
+          import androidx.compose.foundation.layout.Box
+          import androidx.compose.foundation.layout.Column
+          import androidx.compose.foundation.layout.Row
+          import androidx.compose.foundation.layout.Spacer
+          import androidx.compose.foundation.layout.fillMaxSize
+          import androidx.compose.foundation.layout.fillMaxWidth
+          import androidx.compose.foundation.layout.height
+          import androidx.compose.foundation.layout.padding
+          import androidx.compose.foundation.layout.widthIn
+          import androidx.compose.foundation.lazy.LazyColumn
+          import androidx.compose.foundation.lazy.items
+          import androidx.compose.material.icons.Icons
+          import androidx.compose.material.icons.automirrored.filled.OpenInNew
+          import androidx.compose.material.icons.filled.CheckCircle
+          import androidx.compose.material.icons.filled.ContentCopy
+          import androidx.compose.material.icons.filled.CreateNewFolder
+          import androidx.compose.material.icons.filled.DeleteForever
+          import androidx.compose.material.icons.filled.DeleteOutline
+          import androidx.compose.material.icons.filled.Edit
+          import androidx.compose.material.icons.filled.FileDownload
+          import androidx.compose.material.icons.filled.FileUpload
+          import androidx.compose.material.icons.filled.FolderOpen
+          import androidx.compose.material.icons.outlined.FolderOff
+          import androidx.compose.material3.Button
+          import androidx.compose.material3.Card
+          import androidx.compose.material3.CardDefaults
+          import androidx.compose.material3.FilledTonalIconButton
+          import androidx.compose.material3.Icon
+          import androidx.compose.material3.IconButton
+          import androidx.compose.material3.MaterialTheme
+          import androidx.compose.material3.Text
+          import androidx.compose.runtime.Composable
+          import androidx.compose.ui.Alignment
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.text.style.TextOverflow
+          import androidx.compose.ui.unit.dp
+          import ir.sweetcost.app.model.AppState
+          import ir.sweetcost.app.model.SavedGroup
+          import ir.sweetcost.app.util.formatMoney
+          import ir.sweetcost.app.util.formatNumber
+          
+          @Composable
+          fun GroupsScreen(
+              state: AppState,
+              onCreateGroup: () -> Unit,
+              onLoadGroup: (SavedGroup) -> Unit,
+              onRenameGroup: (SavedGroup) -> Unit,
+              onCopyGroup: (SavedGroup) -> Unit,
+              onDeleteGroup: (SavedGroup) -> Unit,
+              onClearGroups: () -> Unit,
+              onExportGroups: () -> Unit,
+              onImportGroups: () -> Unit,
+          ) {
+              Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+                  LazyColumn(
+                      modifier = Modifier
+                          .fillMaxSize()
+                          .widthIn(max = 840.dp),
+                      contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                          start = 16.dp,
+                          top = 16.dp,
+                          end = 16.dp,
+                          bottom = 164.dp,
+                      ),
+                      verticalArrangement = Arrangement.spacedBy(10.dp),
+                  ) {
+                      item(key = "group-create") {
+                          Button(
+                              onClick = onCreateGroup,
+                              modifier = Modifier
+                                  .fillMaxWidth()
+                                  .height(56.dp),
+                          ) {
+                              Icon(Icons.Filled.CreateNewFolder, contentDescription = null)
+                              Spacer(Modifier.padding(horizontal = 4.dp))
+                              Text("ایجاد گروه جدید")
+                          }
+                      }
+                      item(key = "group-tools") {
+                          Row(
+                              modifier = Modifier.fillMaxWidth(),
+                              horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                          ) {
+                              FilledTonalIconButton(onClick = onImportGroups) {
+                                  Icon(Icons.Filled.FileUpload, contentDescription = "ورود فایل گروه‌ها")
+                              }
+                              FilledTonalIconButton(onClick = onExportGroups) {
+                                  Icon(Icons.Filled.FileDownload, contentDescription = "خروجی فایل گروه‌ها")
+                              }
+                              FilledTonalIconButton(onClick = onClearGroups) {
+                                  Icon(
+                                      Icons.Filled.DeleteForever,
+                                      contentDescription = "پاک کردن همه گروه‌ها",
+                                      tint = MaterialTheme.colorScheme.error,
+                                  )
+                              }
+                          }
+                      }
+                      if (state.groups.isEmpty()) {
+                          item(key = "empty-groups") {
+                              EmptyState(
+                                  icon = Icons.Outlined.FolderOff,
+                                  title = "گروهی ذخیره نشده",
+                                  description = "یک گروه جدید بسازید یا گروه‌های قبلی را از فایل وارد کنید.",
+                              )
+                          }
+                      } else {
+                          items(items = state.groups, key = { it.id }) { group ->
+                              GroupCard(
+                                  group = group,
+                                  active = state.activeGroupId == group.id,
+                                  onLoad = { onLoadGroup(group) },
+                                  onRename = { onRenameGroup(group) },
+                                  onCopy = { onCopyGroup(group) },
+                                  onDelete = { onDeleteGroup(group) },
+                                  modifier = Modifier.animateItem(),
+                              )
+                          }
+                      }
+                  }
+              }
+          }
+          
+          @Composable
+          private fun GroupCard(
+              group: SavedGroup,
+              active: Boolean,
+              onLoad: () -> Unit,
+              onRename: () -> Unit,
+              onCopy: () -> Unit,
+              onDelete: () -> Unit,
+              modifier: Modifier = Modifier,
+          ) {
+              Card(
+                  onClick = onLoad,
+                  modifier = modifier.fillMaxWidth(),
+                  colors = CardDefaults.cardColors(
+                      containerColor = if (active) {
+                          MaterialTheme.colorScheme.primaryContainer
+                      } else MaterialTheme.colorScheme.surfaceContainer,
+                  ),
+              ) {
+                  Column(
+                      modifier = Modifier
+                          .fillMaxWidth()
+                          .padding(16.dp),
+                  ) {
+                      Row(
+                          modifier = Modifier.fillMaxWidth(),
+                          verticalAlignment = Alignment.CenterVertically,
+                          horizontalArrangement = Arrangement.spacedBy(10.dp),
+                      ) {
+                          Icon(
+                              imageVector = if (active) Icons.Filled.CheckCircle else Icons.Filled.FolderOpen,
+                              contentDescription = null,
+                              tint = MaterialTheme.colorScheme.primary,
+                          )
+                          Column(modifier = Modifier.weight(1f)) {
+                              Text(
+                                  group.name,
+                                  style = MaterialTheme.typography.titleMedium,
+                                  maxLines = 1,
+                                  overflow = TextOverflow.Ellipsis,
+                              )
+                              Text(
+                                  "${formatNumber(group.ingredients.size.toDouble(), 0)} ماده  •  ${formatMoney(group.ingredients.sumOf { it.usedCost })}",
+                                  style = MaterialTheme.typography.bodySmall,
+                                  color = MaterialTheme.colorScheme.onSurfaceVariant,
+                              )
+                          }
+                      }
+                      Row(
+                          modifier = Modifier.fillMaxWidth(),
+                          horizontalArrangement = Arrangement.End,
+                      ) {
+                          IconButton(onClick = onLoad) {
+                              Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = "بارگذاری ${group.name}")
+                          }
+                          IconButton(onClick = onRename) {
+                              Icon(Icons.Filled.Edit, contentDescription = "تغییر نام ${group.name}")
+                          }
+                          IconButton(onClick = onCopy) {
+                              Icon(Icons.Filled.ContentCopy, contentDescription = "کپی ${group.name}")
+                          }
+                          IconButton(onClick = onDelete) {
+                              Icon(
+                                  Icons.Filled.DeleteOutline,
+                                  contentDescription = "حذف ${group.name}",
+                                  tint = MaterialTheme.colorScheme.error,
+                              )
+                          }
+                      }
+                  }
+              }
+          }
+          __SWEET_COST_FILE_010__
+
+          mkdir -p 'app/src/main/java/ir/sweetcost/app/ui'
+          cat > 'app/src/main/java/ir/sweetcost/app/ui/IngredientsScreen.kt' <<'__SWEET_COST_FILE_011__'
+          package ir.sweetcost.app.ui
+          
+          import androidx.compose.animation.animateContentSize
+          import androidx.compose.foundation.layout.Arrangement
+          import androidx.compose.foundation.layout.Box
+          import androidx.compose.foundation.layout.Column
+          import androidx.compose.foundation.layout.Row
+          import androidx.compose.foundation.layout.Spacer
+          import androidx.compose.foundation.layout.fillMaxSize
+          import androidx.compose.foundation.layout.fillMaxWidth
+          import androidx.compose.foundation.layout.height
+          import androidx.compose.foundation.layout.padding
+          import androidx.compose.foundation.layout.widthIn
+          import androidx.compose.foundation.lazy.LazyColumn
+          import androidx.compose.foundation.lazy.items
+          import androidx.compose.material.icons.Icons
+          import androidx.compose.material.icons.filled.DeleteOutline
+          import androidx.compose.material.icons.filled.Edit
+          import androidx.compose.material.icons.outlined.Inventory2
+          import androidx.compose.material3.Card
+          import androidx.compose.material3.CardDefaults
+          import androidx.compose.material3.ElevatedCard
+          import androidx.compose.material3.Icon
+          import androidx.compose.material3.IconButton
+          import androidx.compose.material3.MaterialTheme
+          import androidx.compose.material3.Text
+          import androidx.compose.runtime.Composable
+          import androidx.compose.ui.Alignment
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.text.style.TextOverflow
+          import androidx.compose.ui.unit.dp
+          import ir.sweetcost.app.model.AppState
+          import ir.sweetcost.app.model.Ingredient
+          import ir.sweetcost.app.util.formatMoney
+          import ir.sweetcost.app.util.formatNumber
+          
+          @Composable
+          fun IngredientsScreen(
+              state: AppState,
+              onGroupNameChange: (String) -> Unit,
+              onSaveGroup: () -> Unit,
+              onEditIngredient: (Ingredient) -> Unit,
+              onDeleteIngredient: (Ingredient) -> Unit,
+          ) {
+              Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+                  LazyColumn(
+                      modifier = Modifier
+                          .fillMaxSize()
+                          .widthIn(max = 840.dp),
+                      contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                          start = 16.dp,
+                          top = 12.dp,
+                          end = 16.dp,
+                          bottom = 164.dp,
+                      ),
+                      verticalArrangement = Arrangement.spacedBy(10.dp),
+                  ) {
+                      item(key = "group-name") {
+                          GroupNameBar(
+                              value = state.groupName,
+                              isDirty = state.isDirty,
+                              onValueChange = onGroupNameChange,
+                              onSave = onSaveGroup,
+                          )
+                      }
+                      if (state.ingredients.isNotEmpty()) {
+                          item(key = "ingredient-summary") {
+                              ElevatedCard(
+                                  modifier = Modifier.fillMaxWidth(),
+                                  colors = CardDefaults.elevatedCardColors(
+                                      containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                  ),
+                              ) {
+                                  Row(
+                                      modifier = Modifier
+                                          .fillMaxWidth()
+                                          .padding(horizontal = 18.dp, vertical = 14.dp),
+                                      horizontalArrangement = Arrangement.SpaceBetween,
+                                      verticalAlignment = Alignment.CenterVertically,
+                                  ) {
+                                      Column {
+                                          Text("هزینه فعلی مواد", style = MaterialTheme.typography.labelLarge)
+                                          Text(
+                                              "براساس مقدار مصرف‌شده",
+                                              style = MaterialTheme.typography.bodySmall,
+                                              color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.75f),
+                                          )
+                                      }
+                                      AnimatedMoney(
+                                          value = state.ingredients.sumOf { it.usedCost },
+                                          emphasize = true,
+                                      )
+                                  }
+                              }
+                          }
+                      }
+                      if (state.ingredients.isEmpty()) {
+                          item(key = "empty-ingredients") {
+                              EmptyState(
+                                  icon = Icons.Outlined.Inventory2,
+                                  title = "هنوز ماده‌ای اضافه نشده",
+                                  description = "برای شروع، دکمه + سمت راست نوار شناور را لمس کنید.",
+                              )
+                          }
+                      } else {
+                          items(
+                              items = state.ingredients,
+                              key = { it.id },
+                          ) { ingredient ->
+                              IngredientCard(
+                                  ingredient = ingredient,
+                                  onEdit = { onEditIngredient(ingredient) },
+                                  onDelete = { onDeleteIngredient(ingredient) },
+                                  modifier = Modifier.animateItem(),
+                              )
+                          }
+                      }
+                  }
+              }
+          }
+          
+          @Composable
+          private fun IngredientCard(
+              ingredient: Ingredient,
+              onEdit: () -> Unit,
+              onDelete: () -> Unit,
+              modifier: Modifier = Modifier,
+          ) {
+              Card(
+                  modifier = modifier
+                      .fillMaxWidth()
+                      .animateContentSize(MaterialTheme.motionScheme.defaultSpatialSpec()),
+              ) {
+                  Row(
+                      modifier = Modifier
+                          .fillMaxWidth()
+                          .padding(16.dp),
+                      verticalAlignment = Alignment.CenterVertically,
+                      horizontalArrangement = Arrangement.spacedBy(12.dp),
+                  ) {
+                      Column(modifier = Modifier.weight(1f)) {
+                          Row(
+                              modifier = Modifier.fillMaxWidth(),
+                              horizontalArrangement = Arrangement.SpaceBetween,
+                              verticalAlignment = Alignment.CenterVertically,
+                          ) {
+                              Text(
+                                  text = ingredient.name,
+                                  style = MaterialTheme.typography.titleMedium,
+                                  maxLines = 1,
+                                  overflow = TextOverflow.Ellipsis,
+                                  modifier = Modifier.weight(1f),
+                              )
+                              Text(
+                                  text = formatMoney(ingredient.usedCost),
+                                  style = MaterialTheme.typography.labelLarge,
+                                  color = MaterialTheme.colorScheme.primary,
+                              )
+                          }
+                          Spacer(Modifier.height(6.dp))
+                          Text(
+                              text = buildString {
+                                  append("کل: ${formatNumber(ingredient.purchaseAmount)} ${ingredient.measureType.unit}")
+                                  append("  •  قیمت: ${formatMoney(ingredient.totalPrice)}")
+                              },
+                              style = MaterialTheme.typography.bodySmall,
+                              color = MaterialTheme.colorScheme.onSurfaceVariant,
+                          )
+                          Text(
+                              text = "مصرف: ${formatNumber(ingredient.usedAmount)} ${ingredient.measureType.unit}",
+                              style = MaterialTheme.typography.bodySmall,
+                              color = MaterialTheme.colorScheme.onSurfaceVariant,
+                          )
+                      }
+                      Column {
+                          IconButton(onClick = onEdit) {
+                              Icon(Icons.Filled.Edit, contentDescription = "ویرایش ${ingredient.name}")
+                          }
+                          IconButton(onClick = onDelete) {
+                              Icon(
+                                  Icons.Filled.DeleteOutline,
+                                  contentDescription = "حذف ${ingredient.name}",
+                                  tint = MaterialTheme.colorScheme.error,
+                              )
+                          }
+                      }
+                  }
+              }
+          }
+          __SWEET_COST_FILE_011__
+
+          mkdir -p 'app/src/main/java/ir/sweetcost/app/ui'
+          cat > 'app/src/main/java/ir/sweetcost/app/ui/ResultScreen.kt' <<'__SWEET_COST_FILE_012__'
+          package ir.sweetcost.app.ui
+          
+          import androidx.compose.animation.AnimatedVisibility
+          import androidx.compose.animation.core.animateFloatAsState
+          import androidx.compose.animation.expandVertically
+          import androidx.compose.animation.fadeIn
+          import androidx.compose.animation.fadeOut
+          import androidx.compose.animation.shrinkVertically
+          import androidx.compose.foundation.clickable
+          import androidx.compose.foundation.layout.Arrangement
+          import androidx.compose.foundation.layout.Box
+          import androidx.compose.foundation.layout.BoxWithConstraints
+          import androidx.compose.foundation.layout.Column
+          import androidx.compose.foundation.layout.Row
+          import androidx.compose.foundation.layout.Spacer
+          import androidx.compose.foundation.layout.fillMaxSize
+          import androidx.compose.foundation.layout.fillMaxWidth
+          import androidx.compose.foundation.layout.height
+          import androidx.compose.foundation.layout.padding
+          import androidx.compose.foundation.layout.widthIn
+          import androidx.compose.foundation.lazy.LazyColumn
+          import androidx.compose.material.icons.Icons
+          import androidx.compose.material.icons.automirrored.filled.ReceiptLong
+          import androidx.compose.material.icons.filled.ExpandMore
+          import androidx.compose.material.icons.outlined.Calculate
+          import androidx.compose.material3.Card
+          import androidx.compose.material3.CardDefaults
+          import androidx.compose.material3.ElevatedCard
+          import androidx.compose.material3.HorizontalDivider
+          import androidx.compose.material3.Icon
+          import androidx.compose.material3.MaterialTheme
+          import androidx.compose.material3.Text
+          import androidx.compose.runtime.Composable
+          import androidx.compose.runtime.getValue
+          import androidx.compose.runtime.mutableStateOf
+          import androidx.compose.runtime.remember
+          import androidx.compose.runtime.setValue
+          import androidx.compose.ui.Alignment
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.draw.rotate
+          import androidx.compose.ui.text.font.FontWeight
+          import androidx.compose.ui.unit.IntSize
+          import androidx.compose.ui.unit.dp
+          import ir.sweetcost.app.model.CalculationResult
+          import ir.sweetcost.app.util.formatMoney
+          import ir.sweetcost.app.util.formatNumber
+          
+          @Composable
+          fun ResultScreen(result: CalculationResult?) {
+              Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+                  if (result == null) {
+                      EmptyState(
+                          icon = Icons.Outlined.Calculate,
+                          title = "هنوز محاسبه‌ای انجام نشده",
+                          description = "دکمه + سمت چپ نوار شناور را لمس کرده و تنظیمات محاسبه را کامل کنید.",
+                          modifier = Modifier.widthIn(max = 840.dp),
+                      )
+                      return@Box
+                  }
+          
+                  LazyColumn(
+                      modifier = Modifier
+                          .fillMaxSize()
+                          .widthIn(max = 840.dp),
+                      contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                          start = 16.dp,
+                          top = 16.dp,
+                          end = 16.dp,
+                          bottom = 164.dp,
+                      ),
+                      verticalArrangement = Arrangement.spacedBy(12.dp),
+                  ) {
+                      item(key = "result-summary") { ResultSummary(result) }
+                      item(key = "result-details") {
+                          ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+                              Column(modifier = Modifier.padding(18.dp)) {
+                                  Text("خلاصه هزینه", style = MaterialTheme.typography.titleMedium)
+                                  Spacer(Modifier.height(10.dp))
+                                  DetailRow("مجموع هزینه مواد اولیه", formatMoney(result.totalMaterialCost))
+                                  DetailRow("مجموع هزینه بسته‌بندی", formatMoney(result.totalPackaging))
+                                  DetailRow("مجموع هزینه تولید", formatMoney(result.totalProductionCost))
+                                  DetailRow("تعداد خروجی", "${formatNumber(result.outputCount.toDouble(), 0)} عدد")
+                                  DetailRow("درصد سود", "${formatNumber(result.profitPercent)}٪", drawDivider = false)
+                              }
+                          }
+                      }
+                      item(key = "result-breakdown") { IngredientBreakdown(result) }
+                  }
+              }
+          }
+          
+          @Composable
+          private fun ResultSummary(result: CalculationResult) {
+              BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                  val metrics = listOf(
+                      Triple("قیمت فروش هر عدد", result.sellingPricePerUnit, true),
+                      Triple("سود هر عدد", result.profitPerUnit, false),
+                      Triple("هزینه تمام‌شده هر عدد", result.costPerUnit, false),
+                      Triple("سود کل", result.totalProfit, false),
+                  )
+                  val columns = if (maxWidth >= 700.dp) 4 else 2
+                  Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                      metrics.chunked(columns).forEach { rowMetrics ->
+                          Row(
+                              modifier = Modifier.fillMaxWidth(),
+                              horizontalArrangement = Arrangement.spacedBy(10.dp),
+                          ) {
+                              rowMetrics.forEach { (label, value, emphasize) ->
+                                  ResultMetricCard(
+                                      label = label,
+                                      value = value,
+                                      emphasize = emphasize,
+                                      modifier = Modifier.weight(1f),
+                                  )
+                              }
+                              repeat(columns - rowMetrics.size) { Spacer(Modifier.weight(1f)) }
+                          }
+                      }
+                  }
+              }
+          }
+          
+          @Composable
+          private fun ResultMetricCard(
+              label: String,
+              value: Double,
+              emphasize: Boolean,
+              modifier: Modifier = Modifier,
+          ) {
+              Card(
+                  modifier = modifier.height(128.dp),
+                  colors = CardDefaults.cardColors(
+                      containerColor = if (emphasize) {
+                          MaterialTheme.colorScheme.primaryContainer
+                      } else MaterialTheme.colorScheme.surfaceContainerHigh,
+                  ),
+              ) {
+                  Column(
+                      modifier = Modifier
+                          .fillMaxSize()
+                          .padding(12.dp),
+                      verticalArrangement = Arrangement.Center,
+                      horizontalAlignment = Alignment.CenterHorizontally,
+                  ) {
+                      Text(
+                          label,
+                          style = MaterialTheme.typography.labelLarge,
+                          color = MaterialTheme.colorScheme.onSurfaceVariant,
+                          maxLines = 2,
+                      )
+                      Spacer(Modifier.height(8.dp))
+                      AnimatedMoney(value = value, emphasize = emphasize)
+                  }
+              }
+          }
+          
+          @Composable
+          private fun DetailRow(label: String, value: String, drawDivider: Boolean = true) {
+              Row(
+                  modifier = Modifier
+                      .fillMaxWidth()
+                      .padding(vertical = 8.dp),
+                  horizontalArrangement = Arrangement.SpaceBetween,
+                  verticalAlignment = Alignment.CenterVertically,
+              ) {
+                  Text(
+                      label,
+                      style = MaterialTheme.typography.bodyMedium,
+                      color = MaterialTheme.colorScheme.onSurfaceVariant,
+                  )
+                  Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+              }
+              if (drawDivider) {
+                  HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f))
+              }
+          }
+          
+          @Composable
+          private fun IngredientBreakdown(result: CalculationResult) {
+              var expanded by remember { mutableStateOf(true) }
+              val rotation by animateFloatAsState(
+                  targetValue = if (expanded) 180f else 0f,
+                  animationSpec = MaterialTheme.motionScheme.fastSpatialSpec(),
+                  label = "breakdown-chevron",
+              )
+              val spatial = MaterialTheme.motionScheme.defaultSpatialSpec<IntSize>()
+              val effects = MaterialTheme.motionScheme.fastEffectsSpec<Float>()
+          
+              Card(modifier = Modifier.fillMaxWidth()) {
+                  Column(modifier = Modifier.fillMaxWidth()) {
+                      Row(
+                          modifier = Modifier
+                              .fillMaxWidth()
+                              .clickable { expanded = !expanded }
+                              .padding(18.dp),
+                          horizontalArrangement = Arrangement.SpaceBetween,
+                          verticalAlignment = Alignment.CenterVertically,
+                      ) {
+                          Row(
+                              verticalAlignment = Alignment.CenterVertically,
+                              horizontalArrangement = Arrangement.spacedBy(10.dp),
+                          ) {
+                              Icon(Icons.AutoMirrored.Filled.ReceiptLong, contentDescription = null)
+                              Text("جزئیات هزینه هر ماده", style = MaterialTheme.typography.titleMedium)
+                          }
+                          Icon(
+                              Icons.Filled.ExpandMore,
+                              contentDescription = if (expanded) "بستن جزئیات" else "نمایش جزئیات",
+                              modifier = Modifier.rotate(rotation),
+                          )
+                      }
+                      AnimatedVisibility(
+                          visible = expanded,
+                          enter = expandVertically(animationSpec = spatial) + fadeIn(animationSpec = effects),
+                          exit = shrinkVertically(animationSpec = spatial) + fadeOut(animationSpec = effects),
+                      ) {
+                          Column(modifier = Modifier.padding(start = 18.dp, end = 18.dp, bottom = 14.dp)) {
+                              result.details.forEachIndexed { index, detail ->
+                                  Row(
+                                      modifier = Modifier
+                                          .fillMaxWidth()
+                                          .padding(vertical = 8.dp),
+                                      horizontalArrangement = Arrangement.SpaceBetween,
+                                  ) {
+                                      Text(detail.name, style = MaterialTheme.typography.bodyMedium)
+                                      Text(
+                                          formatMoney(detail.cost),
+                                          style = MaterialTheme.typography.bodyMedium,
+                                          fontWeight = FontWeight.Bold,
+                                      )
+                                  }
+                                  if (index != result.details.lastIndex) {
+                                      HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                  }
+                              }
+                          }
+                      }
+                  }
+              }
+          }
+          __SWEET_COST_FILE_012__
+
+          mkdir -p 'app/src/main/java/ir/sweetcost/app/ui'
+          cat > 'app/src/main/java/ir/sweetcost/app/ui/Sheets.kt' <<'__SWEET_COST_FILE_013__'
+          package ir.sweetcost.app.ui
+          
+          import androidx.compose.foundation.layout.Arrangement
+          import androidx.compose.foundation.layout.Column
+          import androidx.compose.foundation.layout.Row
+          import androidx.compose.foundation.layout.Spacer
+          import androidx.compose.foundation.layout.fillMaxWidth
+          import androidx.compose.foundation.layout.height
+          import androidx.compose.foundation.layout.imePadding
+          import androidx.compose.foundation.layout.navigationBarsPadding
+          import androidx.compose.foundation.layout.padding
+          import androidx.compose.foundation.lazy.LazyColumn
+          import androidx.compose.foundation.lazy.LazyRow
+          import androidx.compose.foundation.lazy.items
+          import androidx.compose.foundation.shape.RoundedCornerShape
+          import androidx.compose.foundation.text.KeyboardOptions
+          import androidx.compose.material.icons.Icons
+          import androidx.compose.material.icons.filled.Add
+          import androidx.compose.material.icons.filled.Calculate
+          import androidx.compose.material.icons.filled.Check
+          import androidx.compose.material3.Button
+          import androidx.compose.material3.ButtonGroupDefaults
+          import androidx.compose.material3.ExperimentalMaterial3Api
+          import androidx.compose.material3.FilterChip
+          import androidx.compose.material3.Icon
+          import androidx.compose.material3.MaterialTheme
+          import androidx.compose.material3.ModalBottomSheet
+          import androidx.compose.material3.OutlinedTextField
+          import androidx.compose.material3.SheetValue
+          import androidx.compose.material3.Text
+          import androidx.compose.material3.ToggleButton
+          import androidx.compose.material3.rememberBottomSheetState
+          import androidx.compose.runtime.Composable
+          import androidx.compose.runtime.getValue
+          import androidx.compose.runtime.mutableStateOf
+          import androidx.compose.runtime.remember
+          import androidx.compose.runtime.setValue
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.semantics.Role
+          import androidx.compose.ui.semantics.role
+          import androidx.compose.ui.semantics.semantics
+          import androidx.compose.ui.text.input.ImeAction
+          import androidx.compose.ui.unit.dp
+          import ir.sweetcost.app.model.ActionFeedback
+          import ir.sweetcost.app.model.CalculationSettings
+          import ir.sweetcost.app.model.Ingredient
+          import ir.sweetcost.app.model.MeasureType
+          import ir.sweetcost.app.util.formatNumber
+          import ir.sweetcost.app.util.parseLocalizedNumber
+          import ir.sweetcost.app.util.plainNumber
+          
+          @OptIn(ExperimentalMaterial3Api::class)
+          @Composable
+          fun IngredientBottomSheet(
+              editing: Ingredient?,
+              onDismiss: () -> Unit,
+              onSubmit: (Ingredient) -> ActionFeedback,
+              onFeedback: (ActionFeedback) -> Unit,
+          ) {
+              val sheetState = rememberBottomSheetState(
+                  initialValue = SheetValue.Hidden,
+                  enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
+              )
+              var name by remember(editing?.id) { mutableStateOf(editing?.name.orEmpty()) }
+              var type by remember(editing?.id) { mutableStateOf(editing?.measureType ?: MeasureType.GRAM) }
+              var purchaseAmount by remember(editing?.id) {
+                  mutableStateOf(editing?.purchaseAmount?.let(::plainNumber).orEmpty())
+              }
+              var totalPrice by remember(editing?.id) {
+                  mutableStateOf(editing?.totalPrice?.let(::plainNumber).orEmpty())
+              }
+              var usedAmount by remember(editing?.id) {
+                  mutableStateOf(editing?.usedAmount?.let(::plainNumber).orEmpty())
+              }
+              var error by remember(editing?.id) { mutableStateOf<String?>(null) }
+          
+              fun submit() {
+                  val total = parseLocalizedNumber(purchaseAmount)
+                  val price = parseLocalizedNumber(totalPrice)
+                  val used = parseLocalizedNumber(usedAmount)
+                  error = when {
+                      name.trim().isBlank() -> "نام ماده را وارد کنید."
+                      total == null || total <= 0.0 -> "مقدار کل خرید باید بیشتر از صفر باشد."
+                      price == null || price < 0.0 -> "قیمت کل معتبر وارد کنید."
+                      used == null || used < 0.0 -> "مقدار مصرفی معتبر وارد کنید."
+                      used > total -> "مقدار مصرفی نمی‌تواند از مقدار کل بیشتر باشد."
+                      else -> null
+                  }
+                  if (error != null) return
+                  val ingredient = Ingredient(
+                      id = editing?.id ?: java.util.UUID.randomUUID().toString(),
+                      name = name.trim(),
+                      measureType = type,
+                      purchaseAmount = total!!,
+                      totalPrice = price!!,
+                      usedAmount = used!!,
+                  )
+                  val feedback = onSubmit(ingredient)
+                  onFeedback(feedback)
+                  if (feedback.success) onDismiss() else error = feedback.message
+              }
+          
+              ModalBottomSheet(
+                  onDismissRequest = onDismiss,
+                  sheetState = sheetState,
+                  sheetMaxWidth = 640.dp,
+              ) {
+                  LazyColumn(
+                      modifier = Modifier
+                          .fillMaxWidth()
+                          .navigationBarsPadding()
+                          .imePadding(),
+                      contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                          start = 24.dp,
+                          end = 24.dp,
+                          bottom = 28.dp,
+                      ),
+                      verticalArrangement = Arrangement.spacedBy(14.dp),
+                  ) {
+                      item {
+                          Text(
+                              text = if (editing == null) "افزودن ماده جدید" else "ویرایش ماده",
+                              style = MaterialTheme.typography.headlineSmall,
+                          )
+                      }
+                      item {
+                          OutlinedTextField(
+                              value = name,
+                              onValueChange = { name = it.take(80); error = null },
+                              modifier = Modifier.fillMaxWidth(),
+                              label = { Text("نام") },
+                              placeholder = { Text("مثلاً آرد") },
+                              singleLine = true,
+                              keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                          )
+                      }
+                      item {
+                          Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                              Text("نوع مقدار ورودی", style = MaterialTheme.typography.labelLarge)
+                              MeasureTypeConnectedGroup(
+                                  selected = type,
+                                  onSelected = { selected ->
+                                      type = selected
+                                      purchaseAmount = ""
+                                      usedAmount = ""
+                                      error = null
+                                  },
+                              )
+                          }
+                      }
+                      item {
+                          Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                              Text(
+                                  "مقادیر پیش‌فرض ${type.unit}",
+                                  style = MaterialTheme.typography.labelLarge,
+                              )
+                              LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                  items(type.presets) { preset ->
+                                      val selected = parseLocalizedNumber(purchaseAmount) == preset
+                                      FilterChip(
+                                          selected = selected,
+                                          onClick = {
+                                              purchaseAmount = plainNumber(preset)
+                                              error = null
+                                          },
+                                          label = { Text(formatNumber(preset)) },
+                                          leadingIcon = if (selected) {
+                                              { Icon(Icons.Filled.Check, contentDescription = null) }
+                                          } else null,
+                                      )
+                                  }
+                              }
+                          }
+                      }
+                      item {
+                          NumericField(
+                              value = purchaseAmount,
+                              onValueChange = { purchaseAmount = it; error = null },
+                              label = "${type.totalLabel} / مقدار دلخواه",
+                              suffix = type.unit,
+                              modifier = Modifier.fillMaxWidth(),
+                          )
+                      }
+                      item {
+                          NumericField(
+                              value = totalPrice,
+                              onValueChange = { totalPrice = it; error = null },
+                              label = "قیمت کل",
+                              suffix = "تومان",
+                              modifier = Modifier.fillMaxWidth(),
+                          )
+                      }
+                      item {
+                          NumericField(
+                              value = usedAmount,
+                              onValueChange = { usedAmount = it; error = null },
+                              label = type.usedLabel,
+                              suffix = type.unit,
+                              modifier = Modifier.fillMaxWidth(),
+                              imeAction = ImeAction.Done,
+                              onDone = ::submit,
+                          )
+                      }
+                      error?.let { message ->
+                          item {
+                              Text(
+                                  text = message,
+                                  color = MaterialTheme.colorScheme.error,
+                                  style = MaterialTheme.typography.bodyMedium,
+                              )
+                          }
+                      }
+                      item {
+                          Button(
+                              onClick = ::submit,
+                              modifier = Modifier
+                                  .fillMaxWidth()
+                                  .height(56.dp),
+                              shape = RoundedCornerShape(20.dp),
+                          ) {
+                              Icon(
+                                  imageVector = if (editing == null) Icons.Filled.Add else Icons.Filled.Check,
+                                  contentDescription = null,
+                              )
+                              Spacer(Modifier.padding(horizontal = 4.dp))
+                              Text(if (editing == null) "اضافه کردن ماده" else "ذخیره تغییرات")
+                          }
+                      }
+                  }
+              }
+          }
+          
+          @Composable
+          private fun MeasureTypeConnectedGroup(
+              selected: MeasureType,
+              onSelected: (MeasureType) -> Unit,
+          ) {
+              val options = MeasureType.entries
+              Row(
+                  modifier = Modifier.fillMaxWidth(),
+                  horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
+              ) {
+                  options.forEachIndexed { index, option ->
+                      ToggleButton(
+                          checked = selected == option,
+                          onCheckedChange = { onSelected(option) },
+                          modifier = Modifier
+                              .weight(1f)
+                              .semantics { role = Role.RadioButton },
+                          shapes = when (index) {
+                              0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
+                              options.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
+                              else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
+                          },
+                          contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 6.dp),
+                      ) {
+                          Text(option.title, maxLines = 1, style = MaterialTheme.typography.labelLarge)
+                      }
+                  }
+              }
+          }
+          
+          @OptIn(ExperimentalMaterial3Api::class)
+          @Composable
+          fun CalculationBottomSheet(
+              initial: CalculationSettings,
+              onDismiss: () -> Unit,
+              onCalculate: (CalculationSettings) -> ActionFeedback,
+              onFeedback: (ActionFeedback) -> Unit,
+          ) {
+              val sheetState = rememberBottomSheetState(
+                  initialValue = SheetValue.Hidden,
+                  enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
+              )
+              var output by remember(initial) { mutableStateOf(initial.outputCount.toString()) }
+              var profit by remember(initial) { mutableStateOf(plainNumber(initial.profitPercent)) }
+              var packaging by remember(initial) { mutableStateOf(plainNumber(initial.packagingPerUnit)) }
+              var error by remember(initial) { mutableStateOf<String?>(null) }
+              val profitPresets = listOf(10.0, 20.0, 30.0, 40.0, 50.0)
+          
+              fun submit() {
+                  val outputValue = parseLocalizedNumber(output)
+                  val profitValue = parseLocalizedNumber(profit)
+                  val packagingValue = parseLocalizedNumber(packaging)
+                  error = when {
+                      outputValue == null || outputValue <= 0.0 || outputValue % 1.0 != 0.0 ->
+                          "تعداد خروجی باید یک عدد صحیح بیشتر از صفر باشد."
+                      profitValue == null || profitValue < 0.0 -> "درصد سود معتبر وارد کنید."
+                      packagingValue == null || packagingValue < 0.0 -> "هزینه بسته‌بندی معتبر وارد کنید."
+                      else -> null
+                  }
+                  if (error != null) return
+                  val feedback = onCalculate(
+                      CalculationSettings(
+                          outputCount = outputValue!!.toInt(),
+                          profitPercent = profitValue!!,
+                          packagingPerUnit = packagingValue!!,
+                      ),
+                  )
+                  onFeedback(feedback)
+                  if (feedback.success) onDismiss() else error = feedback.message
+              }
+          
+              ModalBottomSheet(
+                  onDismissRequest = onDismiss,
+                  sheetState = sheetState,
+                  sheetMaxWidth = 640.dp,
+              ) {
+                  LazyColumn(
+                      modifier = Modifier
+                          .fillMaxWidth()
+                          .navigationBarsPadding()
+                          .imePadding(),
+                      contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                          start = 24.dp,
+                          end = 24.dp,
+                          bottom = 28.dp,
+                      ),
+                      verticalArrangement = Arrangement.spacedBy(14.dp),
+                  ) {
+                      item {
+                          Text("تنظیمات خروجی و سود", style = MaterialTheme.typography.headlineSmall)
+                      }
+                      item {
+                          Row(
+                              modifier = Modifier.fillMaxWidth(),
+                              horizontalArrangement = Arrangement.spacedBy(10.dp),
+                          ) {
+                              NumericField(
+                                  value = output,
+                                  onValueChange = { output = it; error = null },
+                                  label = "تعداد خروجی",
+                                  suffix = "عدد",
+                                  modifier = Modifier.weight(1f),
+                              )
+                              NumericField(
+                                  value = profit,
+                                  onValueChange = { profit = it; error = null },
+                                  label = "درصد سود",
+                                  suffix = "٪",
+                                  modifier = Modifier.weight(1f),
+                              )
+                          }
+                      }
+                      item {
+                          Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                              Text("درصدهای پیشنهادی", style = MaterialTheme.typography.labelLarge)
+                              LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                  items(profitPresets) { preset ->
+                                      val selected = parseLocalizedNumber(profit) == preset
+                                      FilterChip(
+                                          selected = selected,
+                                          onClick = { profit = plainNumber(preset); error = null },
+                                          label = { Text("${formatNumber(preset, 0)}٪") },
+                                          leadingIcon = if (selected) {
+                                              { Icon(Icons.Filled.Check, contentDescription = null) }
+                                          } else null,
+                                      )
+                                  }
+                              }
+                          }
+                      }
+                      item {
+                          NumericField(
+                              value = packaging,
+                              onValueChange = { packaging = it; error = null },
+                              label = "هزینه بسته‌بندی هر عدد",
+                              suffix = "تومان",
+                              modifier = Modifier.fillMaxWidth(),
+                              imeAction = ImeAction.Done,
+                              onDone = ::submit,
+                          )
+                      }
+                      error?.let { message ->
+                          item {
+                              Text(
+                                  text = message,
+                                  color = MaterialTheme.colorScheme.error,
+                                  style = MaterialTheme.typography.bodyMedium,
+                              )
+                          }
+                      }
+                      item {
+                          Button(
+                              onClick = ::submit,
+                              modifier = Modifier
+                                  .fillMaxWidth()
+                                  .height(56.dp),
+                              shape = RoundedCornerShape(20.dp),
+                          ) {
+                              Icon(Icons.Filled.Calculate, contentDescription = null)
+                              Spacer(Modifier.padding(horizontal = 4.dp))
+                              Text("محاسبه")
+                          }
+                      }
+                  }
+              }
+          }
+          
+          @OptIn(ExperimentalMaterial3Api::class)
+          @Composable
+          fun GroupNameBottomSheet(
+              title: String,
+              initialName: String = "",
+              actionLabel: String,
+              onDismiss: () -> Unit,
+              onSubmit: (String) -> ActionFeedback,
+              onFeedback: (ActionFeedback) -> Unit,
+          ) {
+              val sheetState = rememberBottomSheetState(
+                  initialValue = SheetValue.Hidden,
+                  enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
+              )
+              var name by remember(initialName) { mutableStateOf(initialName) }
+              var error by remember(initialName) { mutableStateOf<String?>(null) }
+          
+              fun submit() {
+                  if (name.trim().isBlank()) {
+                      error = "نام گروه را وارد کنید."
+                      return
+                  }
+                  val feedback = onSubmit(name)
+                  onFeedback(feedback)
+                  if (feedback.success) onDismiss() else error = feedback.message
+              }
+          
+              ModalBottomSheet(
+                  onDismissRequest = onDismiss,
+                  sheetState = sheetState,
+                  sheetMaxWidth = 640.dp,
+              ) {
+                  Column(
+                      modifier = Modifier
+                          .fillMaxWidth()
+                          .navigationBarsPadding()
+                          .imePadding()
+                          .padding(start = 24.dp, end = 24.dp, bottom = 28.dp),
+                      verticalArrangement = Arrangement.spacedBy(16.dp),
+                  ) {
+                      Text(title, style = MaterialTheme.typography.headlineSmall)
+                      OutlinedTextField(
+                          value = name,
+                          onValueChange = { name = it.take(80); error = null },
+                          modifier = Modifier.fillMaxWidth(),
+                          label = { Text("نام گروه") },
+                          placeholder = { Text("مثلاً کوکی شکلاتی") },
+                          isError = error != null,
+                          supportingText = error?.let { message -> ({ Text(message) }) },
+                          singleLine = true,
+                          keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                          keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { submit() }),
+                      )
+                      Button(
+                          onClick = ::submit,
+                          modifier = Modifier
+                              .fillMaxWidth()
+                              .height(56.dp),
+                          shape = RoundedCornerShape(20.dp),
+                      ) {
+                          Text(actionLabel)
+                      }
+                  }
+              }
+          }
+          __SWEET_COST_FILE_013__
+
+          mkdir -p 'app/src/main/java/ir/sweetcost/app/ui/theme'
+          cat > 'app/src/main/java/ir/sweetcost/app/ui/theme/Theme.kt' <<'__SWEET_COST_FILE_014__'
+          package ir.sweetcost.app.ui.theme
+          
+          import android.os.Build
+          import androidx.compose.foundation.isSystemInDarkTheme
+          import androidx.compose.foundation.shape.RoundedCornerShape
+          import androidx.compose.material3.MaterialExpressiveTheme
+          import androidx.compose.material3.MotionScheme
+          import androidx.compose.material3.Shapes
+          import androidx.compose.material3.Typography
+          import androidx.compose.material3.darkColorScheme
+          import androidx.compose.material3.dynamicDarkColorScheme
+          import androidx.compose.material3.dynamicLightColorScheme
+          import androidx.compose.material3.expressiveLightColorScheme
+          import androidx.compose.runtime.Composable
+          import androidx.compose.ui.graphics.Color
+          import androidx.compose.ui.platform.LocalContext
+          import androidx.compose.ui.text.TextStyle
+          import androidx.compose.ui.text.font.FontFamily
+          import androidx.compose.ui.text.font.FontWeight
+          import androidx.compose.ui.unit.dp
+          import androidx.compose.ui.unit.sp
+          import ir.sweetcost.app.model.ThemeMode
+          
+          private val FallbackDarkColors = darkColorScheme(
+              primary = Color(0xFFD0BCFF),
+              onPrimary = Color(0xFF381E72),
+              primaryContainer = Color(0xFF4F378B),
+              onPrimaryContainer = Color(0xFFEADDFF),
+              secondary = Color(0xFFCCC2DC),
+              secondaryContainer = Color(0xFF4A4458),
+              tertiary = Color(0xFFEFB8C8),
+              tertiaryContainer = Color(0xFF633B48),
+              background = Color(0xFF141218),
+              surface = Color(0xFF141218),
+          )
+          
+          private val ExpressiveShapes = Shapes(
+              extraSmall = RoundedCornerShape(10.dp),
+              small = RoundedCornerShape(16.dp),
+              medium = RoundedCornerShape(22.dp),
+              large = RoundedCornerShape(28.dp),
+              extraLarge = RoundedCornerShape(36.dp),
+              largeIncreased = RoundedCornerShape(32.dp),
+              extraLargeIncreased = RoundedCornerShape(44.dp),
+              extraExtraLarge = RoundedCornerShape(56.dp),
+          )
+          
+          private val PersianTypography = Typography(
+              headlineSmall = TextStyle(
+                  fontFamily = FontFamily.SansSerif,
+                  fontWeight = FontWeight.Bold,
+                  fontSize = 24.sp,
+                  lineHeight = 32.sp,
+              ),
+              titleLarge = TextStyle(
+                  fontFamily = FontFamily.SansSerif,
+                  fontWeight = FontWeight.Bold,
+                  fontSize = 22.sp,
+                  lineHeight = 30.sp,
+              ),
+              titleMedium = TextStyle(
+                  fontFamily = FontFamily.SansSerif,
+                  fontWeight = FontWeight.SemiBold,
+                  fontSize = 16.sp,
+                  lineHeight = 24.sp,
+              ),
+              bodyLarge = TextStyle(
+                  fontFamily = FontFamily.SansSerif,
+                  fontWeight = FontWeight.Normal,
+                  fontSize = 16.sp,
+                  lineHeight = 26.sp,
+              ),
+              bodyMedium = TextStyle(
+                  fontFamily = FontFamily.SansSerif,
+                  fontWeight = FontWeight.Normal,
+                  fontSize = 14.sp,
+                  lineHeight = 22.sp,
+              ),
+              labelLarge = TextStyle(
+                  fontFamily = FontFamily.SansSerif,
+                  fontWeight = FontWeight.SemiBold,
+                  fontSize = 14.sp,
+                  lineHeight = 20.sp,
+              ),
+          )
+          
+          /**
+           * Monet is the primary color engine on Android 12+. Older devices receive expressive fallbacks.
+           * MotionScheme.expressive() supplies Material's physics-based spatial/effects motion tokens.
+           */
+          @Composable
+          fun SweetCostTheme(
+              themeMode: ThemeMode,
+              content: @Composable () -> Unit,
+          ) {
+              val systemDark = isSystemInDarkTheme()
+              val darkTheme = when (themeMode) {
+                  ThemeMode.SYSTEM -> systemDark
+                  ThemeMode.LIGHT -> false
+                  ThemeMode.DARK -> true
+              }
+              val context = LocalContext.current
+              val colors = when {
+                  Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && darkTheme -> dynamicDarkColorScheme(context)
+                  Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> dynamicLightColorScheme(context)
+                  darkTheme -> FallbackDarkColors
+                  else -> expressiveLightColorScheme()
+              }
+          
+              MaterialExpressiveTheme(
+                  colorScheme = colors,
+                  motionScheme = MotionScheme.expressive(),
+                  shapes = ExpressiveShapes,
+                  typography = PersianTypography,
+                  content = content,
+              )
+          }
+          __SWEET_COST_FILE_014__
+
+          mkdir -p 'app/src/main/java/ir/sweetcost/app/util'
+          cat > 'app/src/main/java/ir/sweetcost/app/util/Numbers.kt' <<'__SWEET_COST_FILE_015__'
+          package ir.sweetcost.app.util
+          
+          import java.text.NumberFormat
+          import java.util.Locale
+          import kotlin.math.abs
+          
+          private val faLocale = Locale.forLanguageTag("fa-IR")
+          
+          fun formatNumber(value: Double, maximumFractionDigits: Int = 2): String {
+              if (!value.isFinite()) return "۰"
+              return NumberFormat.getNumberInstance(faLocale).apply {
+                  isGroupingUsed = true
+                  minimumFractionDigits = 0
+                  this.maximumFractionDigits = maximumFractionDigits
+              }.format(value)
+          }
+          
+          fun formatMoney(value: Double): String = "${formatNumber(value)} تومان"
+          
+          fun plainNumber(value: Double): String = when {
+              !value.isFinite() -> ""
+              abs(value - value.toLong()) < 0.0000001 -> value.toLong().toString()
+              else -> value.toString().trimEnd('0').trimEnd('.')
+          }
+          
+          fun parseLocalizedNumber(raw: String): Double? {
+              if (raw.isBlank()) return null
+              val normalized = buildString {
+                  raw.trim().forEach { char ->
+                      append(
+                          when (char) {
+                              in '۰'..'۹' -> ('0'.code + (char.code - '۰'.code)).toChar()
+                              in '٠'..'٩' -> ('0'.code + (char.code - '٠'.code)).toChar()
+                              '٫' -> '.'
+                              '٬', ',', '،', ' ' -> return@forEach
+                              else -> char
+                          },
+                      )
+                  }
+              }
+              return normalized.toDoubleOrNull()
+          }
+          __SWEET_COST_FILE_015__
+
+          mkdir -p 'app/src/main/res/drawable'
+          cat > 'app/src/main/res/drawable/ic_launcher_background.xml' <<'__SWEET_COST_FILE_016__'
+          <?xml version="1.0" encoding="utf-8"?>
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="108dp"
+              android:height="108dp"
+              android:viewportWidth="108"
+              android:viewportHeight="108">
+              <path android:fillColor="#6750A4" android:pathData="M0,0h108v108h-108z" />
+          </vector>
+          __SWEET_COST_FILE_016__
+
+          mkdir -p 'app/src/main/res/drawable'
+          cat > 'app/src/main/res/drawable/ic_launcher_foreground.xml' <<'__SWEET_COST_FILE_017__'
+          <?xml version="1.0" encoding="utf-8"?>
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="108dp"
+              android:height="108dp"
+              android:viewportWidth="108"
+              android:viewportHeight="108">
+              <path android:fillColor="#FFF7FF" android:pathData="M31,50h46a5,5 0,0 1,5 5v24a5,5 0,0 1,-5 5h-46a5,5 0,0 1,-5 -5v-24a5,5 0,0 1,5 -5z" />
+              <path android:fillColor="#EADDFF" android:pathData="M26,58c6,0 6,-5 12,-5s6,5 12,5 6,-5 12,-5 6,5 20,5v9c-6,0 -6,5 -12,5s-6,-5 -12,-5 -6,5 -12,5 -6,-5 -20,-5z" />
+              <path android:fillColor="#FFD8E4" android:pathData="M50,33h8v17h-8z" />
+              <path android:fillColor="#FFB300" android:pathData="M54,22c6,7 5,12 0,12s-6,-5 0,-12z" />
+              <path android:fillColor="#FFFFFF" android:pathData="M21,84h66a4,4 0,0 1,0 8h-66a4,4 0,0 1,0 -8z" />
+          </vector>
+          __SWEET_COST_FILE_017__
+
+          mkdir -p 'app/src/main/res/mipmap-anydpi'
+          cat > 'app/src/main/res/mipmap-anydpi/ic_launcher.xml' <<'__SWEET_COST_FILE_018__'
+          <?xml version="1.0" encoding="utf-8"?>
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+              <path android:fillColor="#6750A4" android:pathData="M0,0h108v108h-108z" />
+              <path android:fillColor="#FFF7FF" android:pathData="M31,50h46a5,5 0,0 1,5 5v24a5,5 0,0 1,-5 5h-46a5,5 0,0 1,-5 -5v-24a5,5 0,0 1,5 -5z" />
+              <path android:fillColor="#EADDFF" android:pathData="M26,58c6,0 6,-5 12,-5s6,5 12,5 6,-5 12,-5 6,5 20,5v9c-6,0 -6,5 -12,5s-6,-5 -12,-5 -6,5 -12,5 -6,-5 -20,-5z" />
+              <path android:fillColor="#FFD8E4" android:pathData="M50,33h8v17h-8z" />
+              <path android:fillColor="#FFB300" android:pathData="M54,22c6,7 5,12 0,12s-6,-5 0,-12z" />
+          </vector>
+          __SWEET_COST_FILE_018__
+
+          mkdir -p 'app/src/main/res/mipmap-anydpi'
+          cat > 'app/src/main/res/mipmap-anydpi/ic_launcher_round.xml' <<'__SWEET_COST_FILE_019__'
+          <?xml version="1.0" encoding="utf-8"?>
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+              <path android:fillColor="#6750A4" android:pathData="M54,0a54,54 0,1 0,0 108a54,54 0,1 0,0 -108" />
+              <path android:fillColor="#FFF7FF" android:pathData="M31,50h46a5,5 0,0 1,5 5v24a5,5 0,0 1,-5 5h-46a5,5 0,0 1,-5 -5v-24a5,5 0,0 1,5 -5z" />
+              <path android:fillColor="#EADDFF" android:pathData="M26,58c6,0 6,-5 12,-5s6,5 12,5 6,-5 12,-5 6,5 20,5v9c-6,0 -6,5 -12,5s-6,-5 -12,-5 -6,5 -12,5 -6,-5 -20,-5z" />
+              <path android:fillColor="#FFD8E4" android:pathData="M50,33h8v17h-8z" />
+              <path android:fillColor="#FFB300" android:pathData="M54,22c6,7 5,12 0,12s-6,-5 0,-12z" />
+          </vector>
+          __SWEET_COST_FILE_019__
+
+          mkdir -p 'app/src/main/res/mipmap-anydpi-v26'
+          cat > 'app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml' <<'__SWEET_COST_FILE_020__'
+          <?xml version="1.0" encoding="utf-8"?>
+          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+              <background android:drawable="@drawable/ic_launcher_background" />
+              <foreground android:drawable="@drawable/ic_launcher_foreground" />
+          </adaptive-icon>
+          __SWEET_COST_FILE_020__
+
+          mkdir -p 'app/src/main/res/mipmap-anydpi-v26'
+          cat > 'app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml' <<'__SWEET_COST_FILE_021__'
+          <?xml version="1.0" encoding="utf-8"?>
+          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+              <background android:drawable="@drawable/ic_launcher_background" />
+              <foreground android:drawable="@drawable/ic_launcher_foreground" />
+          </adaptive-icon>
+          __SWEET_COST_FILE_021__
+
+          mkdir -p 'app/src/main/res/values'
+          cat > 'app/src/main/res/values/strings.xml' <<'__SWEET_COST_FILE_022__'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <string name="app_name">محاسبه‌گر شیرینی</string>
+          </resources>
+          __SWEET_COST_FILE_022__
+
+          mkdir -p 'app/src/main/res/values'
+          cat > 'app/src/main/res/values/themes.xml' <<'__SWEET_COST_FILE_023__'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <style name="Theme.SweetCost" parent="android:style/Theme.Material.Light.NoActionBar">
+                  <item name="android:fontFamily">sans</item>
+                  <item name="android:windowLightStatusBar">true</item>
+                  <item name="android:statusBarColor">@android:color/transparent</item>
+                  <item name="android:navigationBarColor">@android:color/transparent</item>
+                  <item name="android:windowActionModeOverlay">true</item>
+                  <item name="android:windowNoTitle">true</item>
+              </style>
+          </resources>
+          __SWEET_COST_FILE_023__
+
+          mkdir -p 'app/src/main/res/values-night'
+          cat > 'app/src/main/res/values-night/themes.xml' <<'__SWEET_COST_FILE_024__'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <style name="Theme.SweetCost" parent="android:style/Theme.Material.NoActionBar">
+                  <item name="android:fontFamily">sans</item>
+                  <item name="android:windowLightStatusBar">false</item>
+                  <item name="android:statusBarColor">@android:color/transparent</item>
+                  <item name="android:navigationBarColor">@android:color/transparent</item>
+                  <item name="android:windowActionModeOverlay">true</item>
+                  <item name="android:windowNoTitle">true</item>
+              </style>
+          </resources>
+          __SWEET_COST_FILE_024__
+
+          mkdir -p 'app/src/main/res/xml'
+          cat > 'app/src/main/res/xml/backup_rules.xml' <<'__SWEET_COST_FILE_025__'
+          <?xml version="1.0" encoding="utf-8"?>
+          <full-backup-content>
+              <include domain="file" path="datastore/" />
+          </full-backup-content>
+          __SWEET_COST_FILE_025__
+
+          mkdir -p 'app/src/main/res/xml'
+          cat > 'app/src/main/res/xml/data_extraction_rules.xml' <<'__SWEET_COST_FILE_026__'
+          <?xml version="1.0" encoding="utf-8"?>
+          <data-extraction-rules>
+              <cloud-backup>
+                  <include domain="file" path="datastore/" />
+              </cloud-backup>
+              <device-transfer>
+                  <include domain="file" path="datastore/" />
+              </device-transfer>
+          </data-extraction-rules>
+          __SWEET_COST_FILE_026__
+
+          cat > 'build.gradle.kts' <<'__SWEET_COST_FILE_027__'
+          plugins {
+              id("com.android.application") version "9.2.1" apply false
+              id("org.jetbrains.kotlin.plugin.compose") version "2.3.21" apply false
+          }
+          __SWEET_COST_FILE_027__
+
+          cat > 'gradle.properties' <<'__SWEET_COST_FILE_028__'
+          org.gradle.jvmargs=-Xmx3g -Dfile.encoding=UTF-8
+          org.gradle.caching=true
+          org.gradle.parallel=true
+          android.useAndroidX=true
+          android.nonTransitiveRClass=true
+          android.enableJetifier=false
+          kotlin.code.style=official
+          __SWEET_COST_FILE_028__
+
+          cat > 'settings.gradle.kts' <<'__SWEET_COST_FILE_029__'
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+          
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          
+          rootProject.name = "SweetCostMonet"
+          include(":app")
+          __SWEET_COST_FILE_029__
+
+          echo "Generated $(find app/src -type f | wc -l) Android source/resource files."
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android 17 platform and build tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          yes | sdkmanager --licenses >/dev/null 2>&1 || true
+          sdkmanager --channel=3 \
+            "platform-tools" \
+            "platforms;android-37.0" \
+            "build-tools;36.0.0"
+
+      - name: Set up Gradle 9.4.1
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.4.1"
+          cache-read-only: false
+
+      - name: Validate version inputs
+        shell: bash
+        env:
+          VERSION_NAME: ${{ inputs.version_name }}
+          VERSION_CODE: ${{ inputs.version_code }}
+        run: |
+          set -euo pipefail
+          [[ "$VERSION_NAME" =~ ^[0-9A-Za-z][0-9A-Za-z._-]{0,49}$ ]] || {
+            echo "Invalid version_name. Use 1-50 ASCII letters, digits, dot, underscore, or dash." >&2
+            exit 1
+          }
+          [[ "$VERSION_CODE" =~ ^[1-9][0-9]*$ ]] || {
+            echo "version_code must be a positive integer." >&2
+            exit 1
+          }
+
+      - name: Materialize embedded internal signing identity
+        id: signing
+        shell: bash
+        run: |
+          set -euo pipefail
+          KEYSTORE_PATH="$GITHUB_WORKSPACE/release.keystore"
+          SIGNING_ENV="$RUNNER_TEMP/sweetcost-signing.env"
+          KEYSTORE_BASE64='/u3+7QAAAAIAAAABAAAAAQAac3dlZXRjb3N0LWYxZDhiYzIwMWRkMjZlZTMAAAGf0DvHWwAACYYwggmCMA4GCisGAQQBKgIRAQEFAASCCW7Pix4QfXyycbHRL1C2qApoNiQ4l0yB4s5uN6xnpYi+S7KBjxhqKVpixHE7pvFkSDBRlpxMqSXe4YNapn7pGVCQLqCBBcTYCnjl7dcH+DCBRJbV/j22jzLzpcHYSZBEM7ljSZaNIRV6uQ1MHvlImuAmSMKD2WI+0WLlY+i0YEcs9InQzg3U30qw+WZIAtVPTVaPRukYsyn+Y+o4IDAozuR1qTS69WqSUZyYfBm8N/xZVyn85u3pbcgKZ8ARjYedXI2mCEkxpRrylmpW+4XR9Ls16yI5CGP15jxdtjxdOvchy8xrjhod4cH2p2VsLJH2jbKLx3Cttvp7uj/TdWMCbTwe56DTAxCyQWtY5YgPRNzACw7nfwERdNVGtOLRFBIeUTg/L0o6JkzQO0l7r/Jq23AJar9YtIQswUSDTFV3uYWDpBJ7QH6aPGQYIB1J6pQg5TXaK7eNzJTujQAOs/W4aaMqtQxh4lZVAktdqGoO6I9FjekVpTg0huKma67scbh/d/n8rPwj22s+iD1z4eAIe7PZFNCiahAaHmYZMqqhfTNY7R6vCamE3+nwFASV/6Lqdzc6+mt6jqfFWzMPrZPB7uLmWtREiPBc7uclDpbyPKmMdrAetrluGs6X0BJP0XMTaVu3OMdwY39vgifANkEo1Hd4KBpQwSHd29VJ+TKC44ITVYH1ySBgdQHzgq2cNpuThFguhk/MvUkQwYCaxvDEHQgWdfNb0q8OQQeaUNEceX/lICWJDvmM/zM4NDwb/2nnH0wmcIKALjuzkkveDAuZ42NPrEeK8EtQ2coIO+TS1+gZPqubD3sDLLCRvPuI/k2oIG5IqZWeJiodhuiYEmWJhxbp/kYilbW0VIxmN6vmxyOxRyangYVts01XXwS/ETO4e7n0SOqTBzWdIYQXxvno8QTiXASzA5RVtL0TKWqxwkmzsx1vIK+TGfhS1zrl/iitCgOR4dEMZ4ncQrsZD/HZ7DNTD/3Vq5iLHgujFSY8uL+S80OTIZh7JPzaLn4jvtFOfSB2/WS0ntM4rTKzC56dHaW3Gn3Hjy/lwF0SKpCoRhqwszLdGY4KaEwkMkaFbFmTbfYWsbBYaogxsfLDx39/Fz6WlFcSLPwjtmFcg74Z0fqtVUpeNo1rTABhpnAmUu/iNohD38i3vY+4fo+bIDSDFzCqKV5QgI4p4u7Zl37qnJo0E0TUvU/YG/4ypzHUIcO93ZPzxVswbJAg+oBxwgz6rAYKKCcjPs8ODLBRqKAhI3g/ahmkjIJoYIWgzd9jveQdO0vObHBE4kEMnwFAgu/Lx3OPQ7Qpb7NshqjW/tiNy+RhnbdONHLw7L2SD7Ux3A8CUnqlaeoYzlue37ZPzZFyQCDZzVm5AWZigEhv6eAsI754AKxQf8cnzmo4iKRdXb/5TkYEcBdMSm1gljU2/JLoU6UX6QEhsVNsfwevDKKDVxPSMrx5bdVumCNqhU1WBOjmqbfV1rP2bVAoGOoZVKXjxs6lO1AtdxpUqfEoKQ9TKegV/CSTXoyYcYFt3Lj4VNRk+5v6uDxiqT+4SNlXhB4MYqSiAArBa1kQjEccqdizfIwlIS7Op30Suq1Cgqqm5DohxPKscpUUf5szCYEVReDP90NlOIYmM/CX0nZyMu0VsyagevWXxw1M+TyMu9oTnONFpaNtjC5detfBJZt+v7rfJsGo9f1XZhz5ETDP6JHbrxEx3ufqNNOIrW5Bi0v9uHEgOpCOkZiGSHig4cdAVYOGqhkj67KvBqUyw5fikaTitfIG/XsU9m5gX6DR/lhU2kBuA5Hhvcv+lhJC0VB0+HvZR1ulCnGj+u/J7fDztapDzHGF5YtAjaz/+hVH1aMKjv/Ey4Y4YhtFbITBT92p7uGNxiUIPOEFtdAUJ69QpgQGsYfxV92Jb0xJqk9jT19/ysaHYl7eT6RodYiqkdUgSxZp9Z8p7jV0yxUjkWXjJqRgH5ouBVFa2xUpK+PmtPVqQg3MoIRzQGbCzQb6l4AFhE5NyTwpf7Pg4J5gKtz/opY3DXfK1KlAwFzIZmxqoSIhbUw1DIR9V7byD6MSvc7t+RNhw4jOezgLWcvYCkYnJ08Al8sdbVN0+o273bGFIVROtaCqwl243wT5x07gXFujyVzLm3UftpiuUBFWi9iqiXzPtYmki3Zq5mOPTFjG1XEO8LLTDkWAPKp8guRNtF70uujcgJ3gh6Eto3QM7qf+gVeK84SzRV/ERPQ8fXKg2zbAe9JUiF8Z5vMnShe2uko9SFCdeYpM8FBIvrUW0MHFMU8ETm9vSRzbax8DKQ9VAcuzzSWtZG0ieFKlelgt7aa4gbNCeraJVBQMpjFSPPYDyHFhmfnECjRat9KQt3ffYVhc/IwlFPGFgkkaKYPDmCCJrTx99SYjsR0xnDOPID+0sd3yrG07F10fDphSCy0SAMcTv6gVBRm/QA86/Nc/LiiQexupDYsofkTLEAiQhYPGsn4N85HJLAU1+ihRTE4YQIoWFDcPNEL3CN0i7CYRyD0+i6D7AmJoq6YsrI3ln338nHGzCk5JrqA1zW9DvqKVDlW0rgAJVirP3C1t7eZuRi/xBqHIEX+FhxK1laEwmA1TygbelPkjwNHNoJuYtH9m23r9Vaf7H8rcitjmHTL9MGtKaICapa9QMWxJYjwE6EjPTEo1C1XF1aHYy3nzwUHSsEjHz9IGw9olmdKKFYvVbKwr7mi6eBjNJHhyt5w232LOEkuWlmSZXhTo3Wrpb0vG4N8EsA+Q7JwrMbgyg1cVxEsafKRW0CYviMxG3Xrgl6ey4SXjMKJdHpgOoy5GJrK2m4o2QFoAU9eero/HRkDFoJsDaeg2rS+bILp2+6gbVaql6Jj0n6oS2b1bFJZBlZ5xA8qMCK1021rSR/5JGxmESL8EYFsa225E8UygnrdpFBepSTA4m8aYCRaw0xElYuHCPqoSN3v9VwTy0pKpDooqHpBA18w5H8Bd3EaqblNadULr8/clJLNke7bJexU0rO/FdW6Q+GblwZlyDVSRYVnjmVViZ31eScPOHh500iqAlAFnLj9cFO10vkYvSlp65Sw9mPdtValGUBqRFJZMUqW4+PzeN/Mt7PFUnexDhAHLrnTNCgnf1MkqWEX8LjtkH3KijP0MtBS1Yj16tP0aQ8/3Wm4VNECo1dusvm+jl9T3DfSKNZXcdO6Uobsqw4qqqJTSpBlhCrlGbQpx34TsSmCyz6V79JwbNQAAAAEABVguNTA5AAAFNTCCBTEwggMZoAMCAQICBFkTzjEwDQYJKoZIhvcNAQELBQAwSDELMAkGA1UEBhMCVFIxFDASBgNVBAoTC0FyZW5hIEJ1aWxkMSMwIQYDVQQDExpTd2VldENvc3QgSW50ZXJuYWwgQW5kcm9pZDAgFw0yNjA4MDUwNDQzMjZaGA8yMTI2MDcxMjA0NDMyNlowSDELMAkGA1UEBhMCVFIxFDASBgNVBAoTC0FyZW5hIEJ1aWxkMSMwIQYDVQQDExpTd2VldENvc3QgSW50ZXJuYWwgQW5kcm9pZDCCAiIwDQYJKoZIhvcNAQEBBQADggIPADCCAgoCggIBAPhXA8FxOB5fHNwCnhePY5Kks+cteXlpNaHUnyz0xX2V4LOMZBhz1oUfFTjQ0HwlLwM4VYqh7uI1rNF4WG269o6hiNwSA3L8ev/RM+D/jVGCVNIki61bKIsd/lWWY83A40gJwsRUEEYhwiKpsdZrIrQtL1Hkz6S3O2LFqdAKAhv1EOvtDbN2k8pG8Nqlga9UR3YdMYpQFpti2VxNVdmllASC7RHe3yqg+N2zrCsub3Yr0vKgypbcccSi0bPER2SNRXhWCMOSpuhzYUJelCxo5M6h6kkqm40PZaZvn8TAHfgo0vsWBark266RSBJKg+sjo3+yYhSoKpGmoTAxxlhagoxYOuY8V2yhIGm8dxYi3or4iuCUnxrG2TUcAuZWQ06VmNO3CCdP+XNh5s4iVWZ+BUG/zWqXyWb8rCacVbScaLagMxZ0WtfGZQ/0FIVqs8L+fYXeG2tO8eLjJw+GqCnVpt/bgYblU/EJ7x9BOWVUDy4nZ1ALWFw7ZM80XLVBlG1f66qBCYqARgpdkJRsRwfH1SjiG69t8D3C9XqSXInUnMlemB75HtBRt4fty4C+Y0DzEwPWfuhJI0MyBttgwjAzxeuChoEDY2xzWrm8OqQUcKrQ9EaaSznjcyvb1uE5IXVaaXjSSg7+9MSwGNTN/R0nP9ER3f6H/G7IRkt79IUlK5GjAgMBAAGjITAfMB0GA1UdDgQWBBTEe5B4oPkiO/6fPLU+OKgAZTaWxTANBgkqhkiG9w0BAQsFAAOCAgEAHFJ+ZwvTRLkmRkdHyw0j2ut5dbXxJM2ZlHlil8wbSn6yj8vsaO3gLa8znLdQAJqWl+gJ9/VwPMIn5EdR2QNQvJ+eWJj1ElABEuPMo3BG9LyfVtPHp5Ibm1DbQxZOhUsv94Clbg2/LLfIF2tebE5UTKS4GQANk/jBgO0LvOLp/l2jT3upsiBJPp+Xz4o9Is9mv/QbjLtlLPy02OAhDFOzmPjmY2KXT2ywIffgCoH18UbiDqj/l/2hXRGZCbxjrrn6ZXHvlsLT6ycZOOj9gUeJigkiohFxmQf7BEy5M2ML5VfCr/dxhxwFDJGt638NcAeTeeF4DxTDxwYx3TsLqs6KOMVGYXNT0zIxxzpzXnC8KNeFoP+abFPqJz1kfNgVCyXkeAolhhWri416FLwR7nKS/HyXSGt+jbZWThAl/k1TH8ifNrcuhkHhAPpV+Rg6yJSmqxAzwPveqt+ZHCWnIwCDoyDAakpxrVj+Af2cbmxtS9N1BPJ1IU2CMtrH6yHRnbASw049CAyj4ix4TGTyrDcuVSX+M2na0er6agQZuYYfNBNiYpZBH9V3JO0apKwrbd4Lm90u+4KylSz95VKtTiNJObG4R7Lr2oM52dyFBUrp+Xb+Qu/OPFB/WGlcnTIqsNH4NO8AlzDSYyuGwlQitFfhrCfiDTb8EtuaFtZ/CqbeeNZhDkRMwxu2KY779WrFBV+pruE4+g=='
+          STORE_PASSWORD='bd23caf8d813bcec30b6ee376bbb9556c640a92687da5e142b125ce7fbee2516'
+          KEY_ALIAS='sweetcost-f1d8bc201dd26ee3'
+          KEY_PASSWORD='44ad7124bdd81c341093794dd97ca683ad3cb0a12bb250fc0e725060644f8cdf'
+
+          # Mask values in logs. They remain intentionally embedded in this workflow's source.
+          echo "::add-mask::$STORE_PASSWORD"
+          echo "::add-mask::$KEY_ALIAS"
+          echo "::add-mask::$KEY_PASSWORD"
+
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+          chmod 600 "$KEYSTORE_PATH"
+          test -s "$KEYSTORE_PATH"
+          keytool -list \
+            -keystore "$KEYSTORE_PATH" \
+            -storepass "$STORE_PASSWORD" \
+            -alias "$KEY_ALIAS" >/dev/null
+
+          # Credentials are exposed only to the Gradle build process, not later artifact actions.
+          {
+            printf 'export ANDROID_KEYSTORE_PATH=%q\n' "$KEYSTORE_PATH"
+            printf 'export ANDROID_KEYSTORE_PASSWORD=%q\n' "$STORE_PASSWORD"
+            printf 'export ANDROID_KEY_ALIAS=%q\n' "$KEY_ALIAS"
+            printf 'export ANDROID_KEY_PASSWORD=%q\n' "$KEY_PASSWORD"
+          } > "$SIGNING_ENV"
+          chmod 600 "$SIGNING_ENV"
+          echo "env_file=$SIGNING_ENV" >> "$GITHUB_OUTPUT"
+
+      - name: Generate Gradle wrapper
+        shell: bash
+        run: |
+          set -euo pipefail
+          gradle wrapper --gradle-version 9.4.1 --distribution-type bin
+          chmod +x gradlew
+
+      - name: Build the minified signed release APK
+        shell: bash
+        env:
+          VERSION_NAME: ${{ inputs.version_name }}
+          VERSION_CODE: ${{ inputs.version_code }}
+          SIGNING_ENV_FILE: ${{ steps.signing.outputs.env_file }}
+        run: |
+          set -euo pipefail
+          test -s "$SIGNING_ENV_FILE"
+          # shellcheck disable=SC1090
+          source "$SIGNING_ENV_FILE"
+          ./gradlew --no-daemon --max-workers=2 :app:assembleRelease --stacktrace
+
+      - name: Verify signature and prepare APK artifact
+        id: package
+        shell: bash
+        env:
+          VERSION_NAME: ${{ inputs.version_name }}
+        run: |
+          set -euo pipefail
+          APK_PATH="app/build/outputs/apk/release/app-release.apk"
+          test -s "$APK_PATH"
+          APKSIGNER="$ANDROID_HOME/build-tools/36.0.0/apksigner"
+          "$APKSIGNER" verify --verbose --print-certs "$APK_PATH"
+
+          mkdir -p artifacts
+          OUTPUT="artifacts/SweetCost-${VERSION_NAME}-signed.apk"
+          cp "$APK_PATH" "$OUTPUT"
+          SHA256="$(sha256sum "$OUTPUT" | awk '{print $1}')"
+          echo "apk_path=$OUTPUT" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Signed release APK"
+            echo
+            echo "- File: \`$(basename "$OUTPUT")\`"
+            echo "- SHA-256: \`$SHA256\`"
+            echo "- Signature: verified with Android build-tools 36.0.0"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove signing material from the runner
+        if: always()
+        shell: bash
+        run: |
+          rm -f release.keystore "$RUNNER_TEMP/sweetcost-signing.env"
+
+      - name: Upload signed APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: SweetCost-${{ inputs.version_name }}-signed-apk
+          path: ${{ steps.package.outputs.apk_path }}
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
