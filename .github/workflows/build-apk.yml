@@ -1,0 +1,247 @@
+name: Build Cake Cost Calculator APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+jobs:
+  build-apk:
+    name: Generate project and build APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      # This action deliberately creates every application source file. Thus the
+      # workflow can live in an otherwise empty repository.
+      - name: Create the complete Kotlin / Compose project
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=CakeCostCalculator
+          mkdir -p "$APP/app/src/main/java/com/arena/cakecost" "$APP/app/src/main/res/values"
+
+          cat > "$APP/settings.gradle.kts" <<'EOF'
+          pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
+          dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS); repositories { google(); mavenCentral() } }
+          rootProject.name = "CakeCostCalculator"
+          include(":app")
+          EOF
+
+          cat > "$APP/build.gradle.kts" <<'EOF'
+          plugins {
+              id("com.android.application") version "8.7.3" apply false
+              id("org.jetbrains.kotlin.android") version "2.0.21" apply false
+              id("org.jetbrains.kotlin.plugin.compose") version "2.0.21" apply false
+          }
+          EOF
+
+          cat > "$APP/gradle.properties" <<'EOF'
+          android.useAndroidX=true
+          android.enableJetifier=true
+          org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+          org.gradle.parallel=false
+          EOF
+
+          cat > "$APP/app/build.gradle.kts" <<'EOF'
+          plugins {
+              id("com.android.application")
+              id("org.jetbrains.kotlin.android")
+              id("org.jetbrains.kotlin.plugin.compose")
+          }
+          android {
+              namespace = "com.arena.cakecost"
+              compileSdk = 35
+              defaultConfig {
+                  applicationId = "com.arena.cakecost"
+                  minSdk = 26
+                  targetSdk = 35
+                  versionCode = 1
+                  versionName = "1.0"
+              }
+              buildFeatures { compose = true }
+              compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
+              signingConfigs {
+                  create("release") {
+                      storeFile = file("release-keystore.jks")
+                      storePassword = "CakeCostCalculator_2026_Private"
+                      keyAlias = "cake-cost-release"
+                      keyPassword = "CakeCostCalculator_2026_Private"
+                  }
+              }
+              buildTypes {
+                  release {
+                      isMinifyEnabled = false
+                      isShrinkResources = false
+                      signingConfig = signingConfigs.getByName("release")
+                  }
+              }
+          }
+          kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) } }
+          dependencies {
+              implementation(platform("androidx.compose:compose-bom:2024.12.01"))
+              implementation("androidx.activity:activity-compose:1.10.0")
+              implementation("androidx.compose.material3:material3")
+              implementation("androidx.compose.material:material-icons-extended")
+          }
+          EOF
+
+          cat > "$APP/app/src/main/AndroidManifest.xml" <<'EOF'
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+            <application android:theme="@style/Theme.CakeCost" android:label="محاسبه‌گر شیرینی" android:supportsRtl="true">
+              <activity android:name=".MainActivity" android:exported="true">
+                <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
+              </activity>
+            </application>
+          </manifest>
+          EOF
+
+          cat > "$APP/app/src/main/res/values/styles.xml" <<'EOF'
+          <resources><style name="Theme.CakeCost" parent="android:style/Theme.Material.Light.NoActionBar" /></resources>
+          EOF
+
+          cat > "$APP/app/src/main/java/com/arena/cakecost/MainActivity.kt" <<'EOF'
+          package com.arena.cakecost
+
+          import android.os.Build
+          import android.os.Bundle
+          import androidx.activity.ComponentActivity
+          import androidx.activity.compose.setContent
+          import androidx.compose.animation.AnimatedContent
+          import androidx.compose.animation.fadeIn
+          import androidx.compose.animation.fadeOut
+          import androidx.compose.animation.togetherWith
+          import androidx.compose.foundation.background
+          import androidx.compose.foundation.isSystemInDarkTheme
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.foundation.lazy.LazyColumn
+          import androidx.compose.foundation.lazy.items
+          import androidx.compose.material.icons.Icons
+          import androidx.compose.material.icons.filled.*
+          import androidx.compose.material3.*
+          import androidx.compose.runtime.*
+          import androidx.compose.runtime.saveable.rememberSaveable
+          import androidx.compose.ui.Alignment
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.graphics.Brush
+          import androidx.compose.ui.graphics.Color
+          import androidx.compose.ui.platform.LocalContext
+          import androidx.compose.ui.text.font.FontWeight
+          import androidx.compose.ui.text.style.TextAlign
+          import androidx.compose.ui.unit.dp
+          import androidx.compose.ui.unit.sp
+          import java.text.DecimalFormat
+          import java.util.UUID
+
+          private enum class Tab(val title:String) { Ingredients("مواد اولیه"), Groups("گروه‌ها"), Result("نتیجه") }
+          private enum class UnitType(val title:String) { Gram("وزن گرم"), Kilogram("وزن کیلوگرم"), Count("عددی") }
+          private enum class Sheet { Add, Calculate, Group }
+          private data class Ingredient(val id:String=UUID.randomUUID().toString(), val name:String, val unit:UnitType, val pack:Double, val price:Double, val used:Double)
+          private data class Group(val id:String=UUID.randomUUID().toString(), val name:String, val items:List<Ingredient>, val output:Double, val profit:Double, val packaging:Double)
+
+          class MainActivity:ComponentActivity() { override fun onCreate(savedInstanceState:Bundle?) { super.onCreate(savedInstanceState); setContent { App() } } }
+          private fun number(s:String, fallback:Double=0.0)=s.replace(",","").toDoubleOrNull()?:fallback
+          private fun money(v:Double)=DecimalFormat("#,###").format(v)+" تومان"
+          private fun ingredientCost(i:Ingredient):Double { val denominator=if(i.unit==UnitType.Kilogram)i.pack*1000 else i.pack; return if(denominator==0.0)0.0 else i.price*i.used/denominator }
+
+          @OptIn(ExperimentalMaterial3Api::class)
+          @Composable private fun App() {
+            val context=LocalContext.current; val dark=isSystemInDarkTheme()
+            val scheme=if(Build.VERSION.SDK_INT>=31) { if(dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context) } else if(dark) darkColorScheme() else lightColorScheme()
+            var tab by rememberSaveable { mutableStateOf(Tab.Ingredients) }; var selectedSheet by remember { mutableStateOf<Sheet?>(null) }
+            var name by rememberSaveable { mutableStateOf("") }; var ingredients by remember { mutableStateOf(listOf<Ingredient>()) }; var groups by remember { mutableStateOf(listOf<Group>()) }; var loadedId by remember { mutableStateOf<String?>(null) }
+            var output by rememberSaveable { mutableStateOf("1") }; var profit by rememberSaveable { mutableStateOf("30") }; var packaging by rememberSaveable { mutableStateOf("0") }; var total by remember { mutableStateOf<Double?>(null) }
+            MaterialTheme(colorScheme=scheme) {
+              Scaffold(topBar={ CenterAlignedTopAppBar(title={Text(tab.title,fontWeight=FontWeight.Bold)}, actions={ if(tab==Tab.Ingredients) { IconButton(onClick={selectedSheet=Sheet.Group}) { Icon(Icons.Default.CreateNewFolder,"گروه جدید") }; IconButton(onClick={ val n=name.trim(); if(n.isNotEmpty()) { val g=Group(loadedId?:UUID.randomUUID().toString(),n,ingredients,number(output,1.0),number(profit),number(packaging)); groups=if(loadedId==null)groups+g else groups.map{if(it.id==loadedId)g else it}; loadedId=g.id } }) { Icon(Icons.Default.Save,"ذخیره") } } }) }) { inner ->
+                Box(Modifier.fillMaxSize().padding(inner)) {
+                  AnimatedContent(tab, transitionSpec={fadeIn() togetherWith fadeOut()}, label="tab") { page ->
+                    when(page) {
+                      Tab.Ingredients -> IngredientPage(name,{name=it},ingredients,{id->ingredients=ingredients.filterNot{it.id==id}},{selectedSheet=Sheet.Add})
+                      Tab.Groups -> GroupPage(groups,{selectedSheet=Sheet.Group},{id-> val g=groups.first{it.id==id}; name=g.name;ingredients=g.items;output=g.output.toString();profit=g.profit.toString();packaging=g.packaging.toString();loadedId=id;tab=Tab.Ingredients},{id->groups=groups.filterNot{it.id==id}})
+                      Tab.Result -> ResultPage(total,ingredients,number(output,1.0),number(profit),number(packaging))
+                    }
+                  }
+                  Box(Modifier.fillMaxWidth().height(152.dp).align(Alignment.BottomCenter).background(Brush.verticalGradient(listOf(Color.Transparent,MaterialTheme.colorScheme.surface))))
+                  FloatingNavigation(Modifier.align(Alignment.BottomCenter).padding(16.dp),tab,{tab=it},{selectedSheet=Sheet.Add},{selectedSheet=Sheet.Calculate})
+                }
+              }
+              when(selectedSheet) {
+                Sheet.Add -> AddSheet({selectedSheet=null}) { ingredients=ingredients+it;selectedSheet=null }
+                Sheet.Group -> NewGroupSheet({selectedSheet=null}) { name=it;ingredients=emptyList();loadedId=null;selectedSheet=null;tab=Tab.Ingredients }
+                Sheet.Calculate -> CalculateSheet(output,profit,packaging,{output=it},{profit=it},{packaging=it},{selectedSheet=null}) { o,p,pack -> total=ingredients.sumOf(::ingredientCost)+pack*o;selectedSheet=null;tab=Tab.Result }
+                null -> Unit
+              }
+            }
+          }
+
+          @Composable private fun FloatingNavigation(modifier:Modifier, tab:Tab, choose:(Tab)->Unit, add:()->Unit, calc:()->Unit) { Surface(modifier,shape=MaterialTheme.shapes.extraLarge,tonalElevation=6.dp,shadowElevation=8.dp) { Row(Modifier.height(64.dp).padding(horizontal=8.dp),verticalAlignment=Alignment.CenterVertically) { IconButton(add,Modifier.size(52.dp)){Icon(Icons.Default.Add,"افزودن ماده")}; NavigationBar(containerColor=Color.Transparent,modifier=Modifier.width(190.dp)){Tab.entries.forEach { t->NavigationBarItem(tab==t,{choose(t)},{Icon(when(t){Tab.Ingredients->Icons.Default.Inventory2;Tab.Groups->Icons.Default.Folder;Tab.Result->Icons.Default.BarChart},t.title)},alwaysShowLabel=false)}}; IconButton(calc,Modifier.size(52.dp)){Icon(Icons.Default.Calculate,"تنظیمات و محاسبه")} } } }
+          @Composable private fun IngredientPage(name:String,setName:(String)->Unit,items:List<Ingredient>,remove:(String)->Unit,add:()->Unit)=LazyColumn(Modifier.fillMaxSize().padding(horizontal=20.dp),contentPadding=PaddingValues(bottom=110.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){item{OutlinedTextField(name,setName,Modifier.fillMaxWidth().padding(top=10.dp),label={Text("نام گروه")},singleLine=true)};item{Text("مواد افزوده‌شده (${items.size})",fontWeight=FontWeight.Bold)};if(items.isEmpty())item{Empty("هنوز ماده‌ای اضافه نشده است")};items(items,key={it.id}){i->ElevatedCard{Row(Modifier.fillMaxWidth().padding(16.dp),verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text(i.name,fontWeight=FontWeight.Bold);Text("${i.used} • ${money(ingredientCost(i))}",color=MaterialTheme.colorScheme.onSurfaceVariant)};IconButton({remove(i.id)}){Icon(Icons.Default.Delete,"حذف",tint=MaterialTheme.colorScheme.error)}}}};item{Button(add,Modifier.fillMaxWidth()){Icon(Icons.Default.Add,null);Spacer(Modifier.width(8.dp));Text("افزودن ماده")}}}
+          @Composable private fun GroupPage(groups:List<Group>,new:()->Unit,load:(String)->Unit,delete:(String)->Unit)=LazyColumn(Modifier.fillMaxSize().padding(horizontal=20.dp),contentPadding=PaddingValues(top=12.dp,bottom=110.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){item{Button(new,Modifier.fillMaxWidth()){Text("ایجاد گروه جدید")}};if(groups.isEmpty())item{Empty("گروه ذخیره‌شده‌ای وجود ندارد")};items(groups,key={it.id}){g->ElevatedCard{Row(Modifier.fillMaxWidth().padding(16.dp),verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text(g.name,fontWeight=FontWeight.Bold);Text("${g.items.size} ماده • سود ${g.profit}٪")};TextButton({load(g.id)}){Text("بارگذاری")};IconButton({delete(g.id)}){Icon(Icons.Default.Delete,"حذف")}}}}}
+          @Composable private fun ResultPage(total:Double?,items:List<Ingredient>,out:Double,profit:Double,pack:Double)=LazyColumn(Modifier.fillMaxSize().padding(horizontal=20.dp),contentPadding=PaddingValues(top=12.dp,bottom=110.dp)){if(total==null)item{Empty("برای مشاهده نتیجه، محاسبه را انجام دهید")}else{val each=total/out;val sell=each*(1+profit/100);item{Card(colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.primaryContainer)){Column(Modifier.fillMaxWidth().padding(24.dp),horizontalAlignment=Alignment.CenterHorizontally){Text("قیمت فروش هر عدد");Text(money(sell),fontSize=28.sp,fontWeight=FontWeight.Bold);Text("سود هر عدد: ${money(sell-each)}")}}};item{Text("جزئیات هزینه",fontWeight=FontWeight.Bold,modifier=Modifier.padding(top=16.dp))};items(items){i->ListItem(headlineContent={Text(i.name)},trailingContent={Text(money(ingredientCost(i)))})};item{ListItem(headlineContent={Text("هزینه تولید",fontWeight=FontWeight.Bold)},trailingContent={Text(money(total),fontWeight=FontWeight.Bold)})}}}
+          @Composable private fun Empty(text:String)=Column(Modifier.fillMaxWidth().padding(46.dp),horizontalAlignment=Alignment.CenterHorizontally){Text("+
+$text",textAlign=TextAlign.Center,color=MaterialTheme.colorScheme.onSurfaceVariant)}
+
+          @OptIn(ExperimentalMaterial3Api::class) @Composable private fun AddSheet(close:()->Unit,add:(Ingredient)->Unit){var n by remember{mutableStateOf("")};var u by remember{mutableStateOf(UnitType.Gram)};var pack by remember{mutableStateOf("")};var price by remember{mutableStateOf("")};var used by remember{mutableStateOf("")};ModalBottomSheet(onDismissRequest=close){Column(Modifier.fillMaxWidth().padding(24.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){Text("افزودن ماده جدید",style=MaterialTheme.typography.headlineSmall);OutlinedTextField(n,{n=it},Modifier.fillMaxWidth(),label={Text("نام")});SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()){UnitType.entries.forEachIndexed{i,x->SegmentedButton(u==x,{u=x},SegmentedButtonDefaults.itemShape(i,3)){Text(x.title)}}};Text("مقدار بسته / مقدار پیش‌فرض",style=MaterialTheme.typography.labelLarge);Row{listOf("100","500","1000").forEach{x->AssistChip({pack=x},{Text(x)})}};OutlinedTextField(pack,{pack=it},Modifier.fillMaxWidth(),label={Text("مقدار دلخواه")});OutlinedTextField(price,{price=it},Modifier.fillMaxWidth(),label={Text("قیمت کل (تومان)")});OutlinedTextField(used,{used=it},Modifier.fillMaxWidth(),label={Text("مقدار مصرفی")});Button({if(n.isNotBlank())add(Ingredient(name=n,unit=u,pack=number(pack),price=number(price),used=number(used)))},Modifier.fillMaxWidth()){Text("اضافه کردن ماده")}}}}
+          @OptIn(ExperimentalMaterial3Api::class) @Composable private fun CalculateSheet(output:String,profit:String,pack:String,setOut:(String)->Unit,setProfit:(String)->Unit,setPack:(String)->Unit,close:()->Unit,go:(Double,Double,Double)->Unit)=ModalBottomSheet(onDismissRequest=close){Column(Modifier.fillMaxWidth().padding(24.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){Text("تنظیمات و خروجی سود",style=MaterialTheme.typography.headlineSmall);OutlinedTextField(output,setOut,Modifier.fillMaxWidth(),label={Text("تعداد خروجی")});OutlinedTextField(profit,setProfit,Modifier.fillMaxWidth(),label={Text("درصد سود")});Row{listOf("20","30","40").forEach{x->AssistChip({setProfit(x)},{Text("$x٪")})}};OutlinedTextField(pack,setPack,Modifier.fillMaxWidth(),label={Text("هزینه بسته‌بندی هر عدد")});Button({go(number(output,1.0),number(profit),number(pack))},Modifier.fillMaxWidth()){Text("محاسبه")}}}
+          @OptIn(ExperimentalMaterial3Api::class) @Composable private fun NewGroupSheet(close:()->Unit,create:(String)->Unit){var n by remember{mutableStateOf("")};ModalBottomSheet(onDismissRequest=close){Column(Modifier.fillMaxWidth().padding(24.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){Text("ایجاد گروه جدید",style=MaterialTheme.typography.headlineSmall);OutlinedTextField(n,{n=it},Modifier.fillMaxWidth(),label={Text("نام گروه")});Button({if(n.isNotBlank())create(n)},Modifier.fillMaxWidth()){Text("ایجاد")}}}}
+          EOF
+
+      - name: Install Android API 35
+        run: |
+          yes | sdkmanager --licenses >/dev/null
+          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+
+      # The private release signing material is intentionally embedded here as requested.
+      # For a public repository, replace this with GitHub encrypted Secrets.
+      - name: Generate embedded release signing keystore
+        shell: bash
+        run: |
+          keytool -genkeypair -v \
+            -keystore CakeCostCalculator/release-keystore.jks \
+            -storetype JKS \
+            -storepass 'CakeCostCalculator_2026_Private' \
+            -alias cake-cost-release \
+            -keypass 'CakeCostCalculator_2026_Private' \
+            -keyalg RSA -keysize 4096 -validity 10000 \
+            -dname 'CN=Cake Cost Calculator, OU=Private, O=Arena, L=Limburg, ST=Hesse, C=DE'
+
+      - name: Download Gradle and build signed release APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL https://services.gradle.org/distributions/gradle-8.10.2-bin.zip -o /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /tmp
+          cd CakeCostCalculator
+          /tmp/gradle-8.10.2/bin/gradle --no-daemon --max-workers=1 assembleRelease
+          cp app/build/outputs/apk/release/app-release.apk ../CakeCostCalculator-M3-release.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose ../CakeCostCalculator-M3-release.apk
+
+      - name: Upload signed release APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CakeCostCalculator-M3-signed-release-apk
+          path: CakeCostCalculator-M3-release.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload generated source project
+        uses: actions/upload-artifact@v4
+        with:
+          name: CakeCostCalculator-source
+          path: CakeCostCalculator
+          retention-days: 30
